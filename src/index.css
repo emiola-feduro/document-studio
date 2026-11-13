@@ -171,7 +171,7 @@
   opacity: 1;
 }
 
-.react-flow__handle.attr-handle {
+.react-flow__handle.field-handle {
   /* Inside the row's right padding: the node clips anything past its border. */
   width: 9px;
   height: 9px;
@@ -184,12 +184,12 @@
   border: 2px solid var(--c-node);
   transition: opacity 120ms;
 }
-.attr-row:hover .react-flow__handle.attr-handle,
-.react-flow__handle.attr-handle.connectingfrom {
+.field-row:hover .react-flow__handle.field-handle,
+.react-flow__handle.field-handle.connectingfrom {
   opacity: 1;
 }
 
-.react-flow__handle.column-handle {
+.react-flow__handle.row-handle {
   width: 1px;
   height: 1px;
   min-width: 0;
@@ -199,8 +199,8 @@
   pointer-events: none;
 }
 
-.react-flow__edge.selected .er-edge-path,
-.er-edge-path.is-hl {
+.react-flow__edge.selected .rel-edge-path,
+.rel-edge-path.is-hl {
   stroke: var(--c-edge-hl);
   stroke-width: 2.5;
 }

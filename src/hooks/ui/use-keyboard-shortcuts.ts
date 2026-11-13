@@ -49,7 +49,7 @@ const useKeyboardShortcuts = () => {
         }
         return;
       }
-      if (key === 'e' && !mod && !event.altKey) {
+      if (key === 'e' && !mod && !event.altKey && useUiStore.getState().view === 'diagram') {
         event.preventDefault();
         addCollection();
         return;
@@ -62,7 +62,9 @@ const useKeyboardShortcuts = () => {
       }
       if (key === 'escape') {
         const ui = useUiStore.getState();
-        if (ui.selection) ui.select(null);
+        if (ui.contextMenu) ui.closeContextMenu();
+        else if (ui.fieldFocus) ui.setFieldFocus(null);
+        else if (ui.selection) ui.select(null);
         else if (ui.focusMode) ui.setFocusMode(false);
       }
     };

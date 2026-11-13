@@ -76,6 +76,8 @@ export type CollectionOptions = {
   capped?: { size: number; max?: number };
   timeseries?: { timeField: string; metaField?: string; granularity?: string };
   ttl?: { field: string; seconds: number };
+  /** False rejects fields that are not in the model. */
+  additionalProperties?: boolean;
   /** CouchDB and single bucket databases tell document kinds apart with a field. */
   typeDiscriminator?: { field: string; value: string };
 };
@@ -109,6 +111,8 @@ export type Relationship = {
   storage: 'single' | 'array';
   /** N:M with arrays on both sides. */
   twoWay?: boolean;
+  /** With `twoWay`, the array of references kept in the target collection. */
+  reverseFieldPath?: string;
 };
 
 /** The JSON text exactly as the person wrote it. */

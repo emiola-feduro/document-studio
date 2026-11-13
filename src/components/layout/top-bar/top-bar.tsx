@@ -5,7 +5,9 @@ import useProjectStore from '../../../stores/use-project-store';
 import useUiStore from '../../../stores/use-ui-store';
 import Button from '../../ui/button/button';
 import IconButton from '../../ui/icon-button/icon-button';
+import SegmentedControl from '../../ui/segmented-control/segmented-control';
 import PanelsMenu from '../panels-menu/panels-menu';
+import TopBarEngineSelect from './top-bar-engine-select';
 import TopBarExportMenu from './top-bar-export-menu';
 import TopBarLanguageSelect from './top-bar-language-select';
 import TopBarProjectName from './top-bar-project-name';
@@ -16,6 +18,9 @@ const TopBar = () => {
   const canRedo = useProjectStore((s) => s.future.length > 0);
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
+  const view = useUiStore((s) => s.view);
+  const setView = useUiStore((s) => s.setView);
+  const hasProject = useProjectStore((s) => Boolean(s.project));
   const setSettingsOpen = useUiStore((s) => s.setSettingsOpen);
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   const { sidebar, setVisible } = usePanels();
@@ -30,7 +35,21 @@ const TopBar = () => {
       <span className="font-bold tracking-tight">Document Studio</span>
       <span className="h-5 w-px bg-line" aria-hidden />
       <TopBarProjectName />
-      <div className="mx-auto" />
+      <div className="mx-auto">
+        {hasProject && (
+          <SegmentedControl
+            label={t('topBar.view')}
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'diagram', label: t('topBar.diagram') },
+              { value: 'schema', label: t('topBar.schema') },
+              { value: 'documents', label: t('topBar.documents') },
+            ]}
+          />
+        )}
+      </div>
+      <TopBarEngineSelect />
       <div className="flex items-center">
         <IconButton label={t('topBar.undo')} disabled={!canUndo} onClick={undo}>
           <Undo2 size={18} />

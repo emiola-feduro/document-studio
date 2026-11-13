@@ -1,16 +1,18 @@
 import { Background, BackgroundVariant, Controls, MiniMap, ReactFlow } from '@xyflow/react';
 import useDocGraph from '../../../hooks/canvas/use-doc-graph';
 import useFitOnOpen from '../../../hooks/canvas/use-fit-on-open';
-import useT from '../../../hooks/ui/use-t';
-import { addCollection } from '../../../lib/actions';
 import { getTheme } from '../../../lib/themes/themes';
 import usePreferencesStore from '../../../stores/use-preferences-store';
 import useUiStore from '../../../stores/use-ui-store';
-import Button from '../button/button';
+import DocCanvasContextMenu from './doc-canvas-context-menu';
+import DocCanvasEdge from './doc-canvas-edge';
 import DocCanvasEmpty from './doc-canvas-empty';
+import DocCanvasLegend from './doc-canvas-legend';
 import DocCanvasNode from './doc-canvas-node';
+import DocCanvasToolbar from './doc-canvas-toolbar';
 
 const nodeTypes = { collection: DocCanvasNode };
+const edgeTypes = { relation: DocCanvasEdge };
 
 const patterns = {
   dots: BackgroundVariant.Dots,
@@ -19,19 +21,19 @@ const patterns = {
 } as const;
 
 const DocCanvas = () => {
-  const t = useT();
-  const { nodes, ...handlers } = useDocGraph();
+  const { nodes, edges, ...handlers } = useDocGraph();
   useFitOnOpen();
   const themeId = usePreferencesStore((s) => s.themeId);
   const { pattern, dark } = getTheme(themeId);
   const focusMode = useUiStore((s) => s.focusMode);
 
   return (
-    <div className="relative h-full w-full bg-canvas" aria-label={t('canvas.label')}>
+    <div className="relative h-full w-full bg-canvas">
       <ReactFlow
         nodes={nodes}
-        edges={[]}
+        edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         colorMode={dark ? 'dark' : 'light'}
         deleteKeyCode={null}
         selectionKeyCode={null}
@@ -53,14 +55,10 @@ const DocCanvas = () => {
           maskColor="color-mix(in srgb, var(--c-canvas) 70%, transparent)"
           position="bottom-right"
         />
+        {!focusMode && nodes.length > 0 && <DocCanvasToolbar />}
+        {nodes.length > 0 && <DocCanvasLegend />}
+        <DocCanvasContextMenu />
       </ReactFlow>
-      {!focusMode && nodes.length > 0 && (
-        <div className="absolute top-3 left-3 z-10 rounded-theme border-(length:--bw) border-line bg-surface/90 p-1.5 shadow-theme backdrop-blur-sm">
-          <Button size="sm" variant="primary" onClick={() => addCollection()} title={t('common.shortcut', { key: 'E' })}>
-            {t('canvas.newCollection')}
-          </Button>
-        </div>
-      )}
       {nodes.length === 0 && <DocCanvasEmpty />}
     </div>
   );

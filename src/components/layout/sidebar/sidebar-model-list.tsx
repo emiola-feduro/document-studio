@@ -1,4 +1,5 @@
 import useT from '../../../hooks/ui/use-t';
+import { useIssueCounts } from '../../../hooks/data/use-advisor';
 import useCollectionTree from '../../../hooks/model/use-collection-tree';
 import useProjectStore from '../../../stores/use-project-store';
 import useUiStore from '../../../stores/use-ui-store';
@@ -17,6 +18,7 @@ const SidebarModelList = ({ collections: showCollections, relationships: showRel
   const selection = useUiStore((s) => s.selection);
   const select = useUiStore((s) => s.select);
   const tree = useCollectionTree();
+  const issues = useIssueCounts();
 
   if (!project) return null;
   const { collections, relationships } = project;
@@ -36,7 +38,7 @@ const SidebarModelList = ({ collections: showCollections, relationships: showRel
                   ? t('sidebar.subcollection', { parent: nameOf(collection.parentId) })
                   : t('sidebar.fieldsCount', { count: collection.fields.length })
               }
-              issues={0}
+              issues={issues.get(collection.id) ?? 0}
               active={selection?.id === collection.id}
               onSelect={() => select({ kind: 'collection', id: collection.id })}
             />
@@ -50,7 +52,7 @@ const SidebarModelList = ({ collections: showCollections, relationships: showRel
               key={rel.id}
               label={rel.name?.trim() || `${nameOf(rel.from.collectionId)}.${rel.from.fieldPath}`}
               meta={`${t(rel.kind === 'embed' ? 'sidebar.embed' : 'sidebar.reference')}, ${nameOf(rel.to.collectionId)}, ${rel.cardinality}`}
-              issues={0}
+              issues={issues.get(rel.id) ?? 0}
               active={selection?.id === rel.id}
               onSelect={() => select({ kind: 'relationship', id: rel.id })}
             />

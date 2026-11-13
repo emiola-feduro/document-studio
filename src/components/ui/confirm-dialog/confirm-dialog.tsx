@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import useT from '../../../hooks/ui/use-t';
 import Button from '../button/button';
 import Modal from '../modal/modal';
@@ -9,9 +10,11 @@ type ConfirmDialogProps = {
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Extra controls under the message, such as an option of the action. */
+  children?: ReactNode;
 };
 
-const ConfirmDialog = ({ open, title, message, confirmLabel, onConfirm, onCancel }: ConfirmDialogProps) => {
+const ConfirmDialog = ({ open, title, message, confirmLabel, onConfirm, onCancel, children }: ConfirmDialogProps) => {
   const t = useT();
   return (
     <Modal
@@ -29,6 +32,7 @@ const ConfirmDialog = ({ open, title, message, confirmLabel, onConfirm, onCancel
       }
     >
       <p className="leading-relaxed">{message}</p>
+      {children && <div className="mt-3">{children}</div>}
     </Modal>
   );
 };

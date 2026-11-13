@@ -8,7 +8,11 @@ import WorkspaceEmpty from '../../dynamic/workspace/workspace-empty';
 import WorkspaceError from '../../dynamic/workspace/workspace-error';
 import WorkspaceSkeleton from '../../dynamic/workspace/workspace-skeleton';
 import DeleteCollectionDialog from '../../ui/delete-collection-dialog/delete-collection-dialog';
+import AgentExportDialog from '../../ui/agent-export-dialog/agent-export-dialog';
+import ImportDialog from '../../ui/import-dialog/import-dialog';
 import NewProjectDialog from '../../ui/new-project-dialog/new-project-dialog';
+import OpenApiExportDialog from '../../ui/openapi-export-dialog/openapi-export-dialog';
+import RelationshipDialog from '../../ui/relationship-dialog/relationship-dialog';
 import SettingsDialog from '../../ui/settings-dialog/settings-dialog';
 import ToastStack from '../../ui/toast-stack/toast-stack';
 import Inspector from '../inspector/inspector';
@@ -42,8 +46,12 @@ const AppShell = () => {
         {status === 'ready' && (hasProject ? <Workspace /> : <WorkspaceEmpty />)}
         {inspector && <Inspector />}
       </div>
+      <RelationshipDialog />
       <SettingsDialog />
       <NewProjectDialog />
+      <AgentExportDialog />
+      <OpenApiExportDialog />
+      <ImportDialog />
       <DeleteCollectionDialog />
       <ToastStack />
     </div>

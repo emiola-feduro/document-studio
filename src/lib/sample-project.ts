@@ -57,7 +57,7 @@ export const createSampleProject = (): Project => {
     }),
     field('total', 'decimal', { required: true, minimum: 0 }),
   );
-  pedidos.indexes.push(index('clienteId_1', 'clienteId'));
+  pedidos.indexes.push(index('clienteId_1', 'clienteId'), index('items.productoId_1', 'items[].productoId'));
 
   project.collections.push(clientes, pedidos, productos);
   project.relationships.push(
