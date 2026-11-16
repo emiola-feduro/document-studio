@@ -56,6 +56,27 @@ const readLastOpen = () => {
   }
 };
 
+const PENDING_KEY = 'document-studio:pending-save';
+
+const stashPending = (project: Project) => {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(project));
+  } catch {
+    /* storage may be full or unavailable */
+  }
+};
+
+/** The copy left by a page that closed before its save finished, removed once read. */
+const takePending = (): Project | null => {
+  try {
+    const text = localStorage.getItem(PENDING_KEY);
+    localStorage.removeItem(PENDING_KEY);
+    return text ? (JSON.parse(text) as Project) : null;
+  } catch {
+    return null;
+  }
+};
+
 const useProjectStore = create<ProjectState>((set, get) => {
   const scheduleSave = () => {
     set({ saveStatus: 'saving' });
@@ -77,6 +98,21 @@ const useProjectStore = create<ProjectState>((set, get) => {
     const { project, saveStatus } = get();
     if (project && saveStatus === 'saving') await db.saveProject(project);
   };
+
+  // A reload or a closed tab would lose the changes still waiting for the debounced save. The browser
+  // may cancel an IndexedDB write while the page unloads, so a synchronous copy goes to localStorage too.
+  const saveBeforeLeaving = () => {
+    const { project, saveStatus } = get();
+    if (!project || saveStatus !== 'saving') return;
+    stashPending(project);
+    void flushSave();
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', saveBeforeLeaving);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveBeforeLeaving();
+    });
+  }
 
   const load = async (project: Project) => {
     await flushSave();
@@ -101,6 +137,12 @@ const useProjectStore = create<ProjectState>((set, get) => {
 
     init: async () => {
       try {
+        const pending = takePending();
+        if (pending) {
+          const stored = await db.getProject(pending.id);
+          // Only a newer copy of a project that still exists replaces what IndexedDB has.
+          if (stored && pending.updatedAt > stored.updatedAt) await db.saveProject(pending);
+        }
         let projects = await db.listProjects();
         if (projects.length === 0) {
           await db.saveProject(createSampleProject());

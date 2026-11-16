@@ -45,4 +45,26 @@ describe('project store', () => {
     store().redo();
     expect(store().project!.collections).toHaveLength(before + 1);
   });
+
+  it('recovers a newer copy left by a page that closed before saving', async () => {
+    await store().init();
+    const project = structuredClone(store().project!);
+    const values = new Map<string, string>();
+    const fake = { getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => void values.set(k, v), removeItem: (k: string) => void values.delete(k) };
+    Object.assign(globalThis, { localStorage: fake });
+    try {
+      values.set('document-studio:pending-save', JSON.stringify({ ...project, name: 'Unsaved name', updatedAt: project.updatedAt + 1 }));
+      useProjectStore.setState({ project: null });
+      await store().init();
+      expect(store().project?.name).toBe('Unsaved name');
+      expect((await db.projects.get(project.id))?.name).toBe('Unsaved name');
+      expect(values.has('document-studio:pending-save')).toBe(false);
+      // An older copy is ignored.
+      values.set('document-studio:pending-save', JSON.stringify({ ...project, name: 'Old', updatedAt: 1 }));
+      await store().init();
+      expect(store().project?.name).toBe('Unsaved name');
+    } finally {
+      delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
+  });
 });
