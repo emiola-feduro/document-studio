@@ -183,11 +183,13 @@ export const filterCompletions = (engine: EngineId, paths: QueryPath[], before: 
   if (!before.trim()) {
     if (after.trim()) return [];
     const items: FilterCompletion[] = [];
-    for (const p of paths) {
+    // _id is rarely what a filter starts with, so it stays for when it is typed.
+    const starters = paths.filter((p) => p.path !== '_id');
+    for (const p of starters) {
       const first = operandsOf(p.path)[0];
       if (first) items.push({ value: `{ "${p.path}": ${first.text} }`, display: `{ "${p.path}": ${first.text} }`, meaning: first.meaning, detail: first.detail });
     }
-    const two = paths.filter((p) => operandsOf(p.path).length).slice(0, 2);
+    const two = starters.filter((p) => operandsOf(p.path).length).slice(0, 2);
     if (two.length === 2) {
       const [a, b] = two.map((p) => `{ "${p.path}": ${operandsOf(p.path)[0].text} }`);
       items.splice(1, 0, { value: `{ "$or": [${a}, ${b}] }`, display: '$or', meaning: 'or' });
