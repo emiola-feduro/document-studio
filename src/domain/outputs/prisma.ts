@@ -1,12 +1,12 @@
 import { t } from '../../i18n';
 import { indexName } from '../indexes';
-import { camelCase, pascalCase, singular } from '../naming';
+import { camelCase, modelTypeName, pascalCase, singular } from '../naming';
 import type { Collection, Field, Project } from '../types';
 import { parseLiteral, type OutputResult } from './shared';
 
 type Ctx = { project: Project; types: Map<string, string>; enums: Map<string, string>; warnings: string[]; collection: Collection };
 
-const modelName = (c: Collection) => pascalCase(singular(c.name));
+const modelName = (project: Project, c: Collection) => modelTypeName(project, c.name);
 
 const SCALAR: Partial<Record<Field['type'], string>> = {
   string: 'String',
@@ -42,7 +42,7 @@ const fieldLine = (ctx: Ctx, field: Field, owner: string, inType: boolean): stri
   if (field.type === 'array') list = true;
   if (!element) base = 'Json';
   else if (element.type === 'object' || element.type === 'geoPoint') {
-    const typeName = uniqueName(ctx.types, pascalCase(`${owner} ${singular(name)}`));
+    const typeName = uniqueName(ctx.types, pascalCase(`${owner} ${singular(name, ctx.project.namesLocale)}`));
     ctx.types.set(typeName, '');
     const children =
       element.type === 'geoPoint'
@@ -89,7 +89,7 @@ export const prismaOutput = (project: Project): OutputResult => {
 
   for (const collection of project.collections) {
     const ctx: Ctx = { project, types, enums, warnings, collection };
-    const name = modelName(collection);
+    const name = modelName(project, collection);
     const lines = ['id String @id @default(auto()) @map("_id") @db.ObjectId'];
     for (const field of collection.fields) lines.push(...fieldLine(ctx, field, name, false));
     // Top level references become relations; the other side gets the back relation.
@@ -98,10 +98,10 @@ export const prismaOutput = (project: Project): OutputResult => {
       if (!target) continue;
       const fieldName = camelCase(rel.from.fieldPath);
       const relName = `${name}_${fieldName}`;
-      const navName = fieldName.replace(/Ids?$/, '') || camelCase(singular(target.name));
+      const navName = fieldName.replace(/Ids?$/, '') || camelCase(singular(target.name, project.namesLocale));
       if (rel.storage === 'array') {
         if (rel.twoWay) {
-          lines.push(`${navName}${navName === fieldName ? 'List' : ''} ${modelName(target)}[] @relation("${relName}", fields: [${fieldName}], references: [id])`);
+          lines.push(`${navName}${navName === fieldName ? 'List' : ''} ${modelName(project, target)}[] @relation("${relName}", fields: [${fieldName}], references: [id])`);
           const back = backRelations.get(target.id) ?? [];
           back.push(`${camelCase(collection.name)} ${name}[] @relation("${relName}", fields: [${camelCase(rel.reverseFieldPath ?? '')}], references: [id])`);
           backRelations.set(target.id, back);
@@ -109,7 +109,7 @@ export const prismaOutput = (project: Project): OutputResult => {
         continue;
       }
       const optional = lines.find((l) => l.startsWith(`${fieldName} `))?.includes('?') ? '?' : '';
-      lines.push(`${navName}${navName === fieldName ? 'Ref' : ''} ${modelName(target)}${optional} @relation("${relName}", fields: [${fieldName}], references: [id])`);
+      lines.push(`${navName}${navName === fieldName ? 'Ref' : ''} ${modelName(project, target)}${optional} @relation("${relName}", fields: [${fieldName}], references: [id])`);
       const back = backRelations.get(target.id) ?? [];
       back.push(`${camelCase(collection.name)}${target.id === collection.id ? 'Children' : ''} ${name}[] @relation("${relName}")`);
       backRelations.set(target.id, back);

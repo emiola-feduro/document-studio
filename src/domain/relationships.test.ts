@@ -3,7 +3,7 @@ import { createCollection, createField, createProject } from './model';
 import { createRelationship, rebuildRelationshipField, removeRelationship, suggestFieldName } from './relationships';
 
 const setup = (engine: 'mongodb' | 'firestore' | 'couchdb' = 'mongodb') => {
-  const project = createProject('p', engine);
+  const project = { ...createProject('p', engine), namesLocale: 'en' as const };
   const customers = createCollection(engine, 'customers');
   customers.fields.push(createField({ name: 'name' }), createField({ name: 'email' }));
   const orders = createCollection(engine, 'orders');

@@ -1,5 +1,5 @@
 import { docIdParam } from '../model';
-import { isIdentifier, pascalCase, singular } from '../naming';
+import { isIdentifier, modelTypeName } from '../naming';
 import type { Collection, Field, Project } from '../types';
 import type { OutputResult } from './shared';
 
@@ -41,7 +41,7 @@ export const tsObject = (fields: Field[], indent: string, table: Partial<Record<
   return lines.length ? `{\n${lines.join('\n')}\n${indent}}` : 'Record<string, unknown>';
 };
 
-const typeName = (c: Collection) => pascalCase(singular(c.name));
+const typeName = (project: Project, c: Collection) => modelTypeName(project, c.name);
 
 const refFunction = (project: Project, collection: Collection) => {
   const chain: Collection[] = [];
@@ -53,13 +53,13 @@ const refFunction = (project: Project, collection: Collection) => {
   const params = chain.slice(0, -1).map((c) => `${docIdParam(c)}: string`);
   const segments = chain.flatMap((c, i) => (i < chain.length - 1 ? [JSON.stringify(c.name), docIdParam(c)] : [JSON.stringify(c.name)]));
   const name = `${collection.name.replace(/[^A-Za-z0-9]/g, '')}Collection`;
-  return `export const ${name} = (db: Firestore${params.map((p) => `, ${p}`).join('')}) =>\n  collection(db, ${segments.join(', ')}).withConverter(${typeName(collection)[0].toLowerCase()}${typeName(collection).slice(1)}Converter);`;
+  return `export const ${name} = (db: Firestore${params.map((p) => `, ${p}`).join('')}) =>\n  collection(db, ${segments.join(', ')}).withConverter(${typeName(project, collection)[0].toLowerCase()}${typeName(project, collection).slice(1)}Converter);`;
 };
 
 /** TypeScript types and a FirestoreDataConverter per collection, with typed collection references. */
 export const firestoreTypes = (project: Project): OutputResult => {
   const blocks = project.collections.map((collection) => {
-    const name = typeName(collection);
+    const name = typeName(project, collection);
     const converter = `${name[0].toLowerCase()}${name.slice(1)}Converter`;
     return [
       `// ${collection.name}`,

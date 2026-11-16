@@ -5,6 +5,7 @@ import useT from '../../../hooks/ui/use-t';
 import useProjectStore from '../../../stores/use-project-store';
 import PanelHideButton from '../../ui/panel-hide-button/panel-hide-button';
 import InspectorIssueList from './inspector-issue-list';
+import InspectorNaming from './inspector-naming';
 import InspectorSection from './inspector-section';
 
 const InspectorOverview = () => {
@@ -59,6 +60,7 @@ const InspectorOverview = () => {
           <InspectorIssueList issues={tips} />
         </InspectorSection>
       )}
+      <InspectorNaming />
       <InspectorSection title={t('inspector.patterns')}>
         <ul className="space-y-1">
           {PATTERNS.map((p) => (

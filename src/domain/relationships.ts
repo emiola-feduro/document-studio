@@ -1,6 +1,6 @@
 import { ENGINES } from './engines';
 import { createField, uid } from './model';
-import { camelCase, singular } from './naming';
+import { embedFieldName, projectNaming, referenceFieldName } from './naming';
 import { cloneFields, fieldAtPath, locateField, removeField, walkFields } from './paths';
 import type { Cardinality, Collection, Field, Project, Relationship } from './types';
 
@@ -28,9 +28,8 @@ export const suggestFieldName = (project: Project, input: Pick<RelationshipInput
   const target = project.collections.find((c) => c.id === input.toId);
   const base = target?.name || 'ref';
   const storage = input.storage ?? defaultStorage(input.kind, input.cardinality);
-  if (input.kind === 'embed') return camelCase(storage === 'array' ? base : singular(base));
-  const one = camelCase(singular(base));
-  return storage === 'array' ? `${one}Ids` : `${one}Id`;
+  const naming = projectNaming(project);
+  return input.kind === 'embed' ? embedFieldName(base, storage === 'array', naming) : referenceFieldName(base, storage === 'array', naming);
 };
 
 const freeName = (fields: Field[], name: string) => {
@@ -84,7 +83,7 @@ export const createRelationship = (project: Project, input: RelationshipInput): 
   };
   if (input.name?.trim()) relationship.name = input.name.trim();
   if (input.kind === 'reference' && input.cardinality === 'N:M' && input.twoWay && from.id !== to.id) {
-    const reverse = freeName(to.fields, `${camelCase(singular(from.name || 'ref'))}Ids`);
+    const reverse = freeName(to.fields, referenceFieldName(from.name, true, projectNaming(project)));
     to.fields.push(referenceField(project, from, reverse, 'array', false));
     relationship.twoWay = true;
     relationship.reverseFieldPath = reverse;
@@ -146,7 +145,7 @@ export const rebuildRelationshipField = (project: Project, id: string) => {
   else from.fields.push(next);
   if (rel.twoWay && rel.kind === 'reference' && rel.cardinality === 'N:M') {
     if (!rel.reverseFieldPath || !fieldAtPath(to.fields, rel.reverseFieldPath)) {
-      const reverse = freeName(to.fields, `${camelCase(singular(from.name || 'ref'))}Ids`);
+      const reverse = freeName(to.fields, referenceFieldName(from.name, true, projectNaming(project)));
       to.fields.push(referenceField(project, from, reverse, 'array', false));
       rel.reverseFieldPath = reverse;
     }

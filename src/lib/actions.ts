@@ -1,5 +1,6 @@
 import { t } from '../i18n';
 import { changeEngine } from '../domain/engine-change';
+import { applyConvention } from '../domain/naming';
 import { ENGINES } from '../domain/engines';
 import { createCollection, createField, duplicateCollection as duplicate, nextName, removeCollection, uid } from '../domain/model';
 import {
@@ -136,6 +137,21 @@ export const setDatabaseName = (name: string) =>
     else delete draft.databaseName;
   }, 'database-name');
 
+/** Names language and convention used for new reference and embedded fields. */
+export const setNaming = (change: Partial<Pick<Project, 'namesLocale' | 'namingConvention'>>) =>
+  mutate((draft) => Object.assign(draft, change), 'naming');
+
+/** Converts the field names of every collection to the project convention. */
+export const applyNamingToAllFields = () => {
+  const project = useProjectStore.getState().project;
+  if (!project) return;
+  const convention = project.namingConvention ?? 'camelCase';
+  const convert = (name: string) => applyConvention(name, convention);
+  // One undo step for the whole conversion.
+  for (const c of project.collections) convertFieldNames(c.id, convert, 'naming-apply');
+  useUiStore.getState().notify(t('naming.applied', { convention }));
+};
+
 /** Lays out every collection with dagre, using measured sizes when the canvas has them. */
 export const arrangeCollections = (sizes: Map<string, { width: number; height: number }>) => {
   const { project } = useProjectStore.getState();
@@ -225,7 +241,7 @@ export const deleteField = (collectionId: string, fieldId: string) =>
   });
 
 /** Converts every field name of a collection to camelCase or snake_case, keeping paths in sync. */
-export const convertFieldNames = (collectionId: string, convert: (name: string) => string) =>
+export const convertFieldNames = (collectionId: string, convert: (name: string) => string, key?: string) =>
   mutate((draft) => {
     const c = collectionIn(draft, collectionId);
     if (!c) return;
@@ -242,7 +258,7 @@ export const convertFieldNames = (collectionId: string, convert: (name: string) 
       }
     };
     walk(c.fields);
-  });
+  }, key);
 
 /* Indexes */
 

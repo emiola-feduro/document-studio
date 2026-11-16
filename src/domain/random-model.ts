@@ -352,6 +352,7 @@ export const generateRandomModel = (options: RandomModelOptions): Project => {
   const count = Math.max(MIN_COLLECTIONS, Math.min(options.collectionCount, theme.collections.length));
   const specs = theme.collections.slice(0, count);
   const project = createProject(options.name?.trim() || themeName(theme, locale), engine, options.databaseName);
+  project.namesLocale = locale;
   const byKey = new Map<string, Collection>();
 
   specs.forEach((spec, i) => {

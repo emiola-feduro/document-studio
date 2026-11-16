@@ -1,3 +1,4 @@
+import { getLocale } from '../i18n';
 import { ENGINES } from './engines';
 import type { Collection, EngineId, Field, Project } from './types';
 
@@ -6,7 +7,8 @@ export const uid = () =>
 
 export const createProject = (name: string, engine: EngineId, databaseName?: string): Project => {
   const now = Date.now();
-  const project: Project = { id: uid(), name, engine, collections: [], relationships: [], documents: {}, createdAt: now, updatedAt: now };
+  // Names start in the interface language; the overview lets people change it.
+  const project: Project = { id: uid(), name, engine, namesLocale: getLocale(), collections: [], relationships: [], documents: {}, createdAt: now, updatedAt: now };
   if (databaseName?.trim()) project.databaseName = databaseName.trim();
   return project;
 };

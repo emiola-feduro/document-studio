@@ -2,7 +2,7 @@ import { t } from '../i18n';
 import { parseDocument } from './documents';
 import { ENGINES, ID_KEY } from './engines';
 import { docIdParam } from './model';
-import { pascalCase, singular } from './naming';
+import { modelTypeName } from './naming';
 import { standardFieldSchema } from './outputs/json-schema';
 import type { Collection, Project } from './types';
 
@@ -34,8 +34,8 @@ export const buildOpenApi = (project: Project, options: OpenApiOptions = {}): Op
   const used = new Set<string>();
   const names = new Map<string, string>();
   for (const c of project.collections) {
-    let name = pascalCase(singular(c.name));
-    for (let i = 2; used.has(name) || ['Error'].includes(name); i += 1) name = `${pascalCase(singular(c.name))}${i}`;
+    let name = modelTypeName(project, c.name);
+    for (let i = 2; used.has(name) || ['Error'].includes(name); i += 1) name = `${modelTypeName(project, c.name)}${i}`;
     used.add(name);
     names.set(c.id, name);
   }

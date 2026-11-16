@@ -1,11 +1,11 @@
 import { indexName, mongoKeys } from '../indexes';
-import { isIdentifier, pascalCase, singular } from '../naming';
+import { isIdentifier, modelTypeName } from '../naming';
 import type { Collection, Field, Project } from '../types';
 import { jsLiteral, parseLiteral, RawJs, type OutputResult } from './shared';
 
 const key = (name: string) => (isIdentifier(name) ? name : JSON.stringify(name));
 
-const modelName = (collection: Collection) => pascalCase(singular(collection.name));
+const modelName = (project: Project, collection: Collection) => modelTypeName(project, collection.name);
 
 type Ctx = { project: Project; subschemas: string[]; used: Set<string> };
 
@@ -56,7 +56,7 @@ const pathOptions = (ctx: Ctx, field: Field, hint: string): unknown => {
   const options: Record<string, unknown> = { type };
   if (field.required) options.required = true;
   const target = field.reference && ctx.project.collections.find((c) => c.id === field.reference!.collectionId);
-  if (target) options.ref = modelName(target);
+  if (target) options.ref = modelName(ctx.project, target);
   if (field.type === 'enum' && field.enumValues?.length) options.enum = field.enumValues;
   if (field.minLength !== undefined) options.minlength = field.minLength;
   if (field.maxLength !== undefined) options.maxlength = field.maxLength;
@@ -80,7 +80,7 @@ export const mongooseOutput = (project: Project): OutputResult => {
   const blocks: string[] = [];
   for (const collection of project.collections) {
     const ctx: Ctx = { project, subschemas: [], used: new Set() };
-    const name = modelName(collection);
+    const name = modelName(project, collection);
     const fields = definition(ctx, collection.fields);
     const hasTimestamps = ['createdAt', 'updatedAt'].every((n) => collection.fields.some((f) => f.name === n));
     const schemaOptions: Record<string, unknown> = { collection: collection.name };

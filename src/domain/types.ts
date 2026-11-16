@@ -1,3 +1,6 @@
+import type { Locale } from '../i18n';
+import type { NamingConvention } from './naming';
+
 export type EngineId = 'mongodb' | 'firestore' | 'couchdb';
 
 export type FieldType =
@@ -123,6 +126,9 @@ export type Project = {
   name: string;
   engine: EngineId;
   databaseName?: string;
+  /** Language of collection and field names, used to build singulars for reference fields. */
+  namesLocale?: Locale;
+  namingConvention?: NamingConvention;
   collections: Collection[];
   relationships: Relationship[];
   /** By collection id. */

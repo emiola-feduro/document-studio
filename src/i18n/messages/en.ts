@@ -663,4 +663,11 @@ export const en: Messages = {
   'workspace.noProject': "No project is open",
   'workspace.storageError': "Could not open local storage",
   'workspace.storageErrorDetail': "The browser blocked IndexedDB or site data. Make sure you are not in a private window.",
+  'naming.title': "Names",
+  'naming.locale': "Names language",
+  'naming.convention': "Convention",
+  'naming.example': "A reference to {collection} will be named {field}.",
+  'naming.applyAll': "Apply to existing fields",
+  'naming.applied': "Field names converted to {convention}",
+  'naming.sampleCollection': "orders",
 };

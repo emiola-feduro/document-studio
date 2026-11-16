@@ -666,6 +666,13 @@ export const es = {
   'workspace.noProject': "No hay ningún proyecto abierto",
   'workspace.storageError': "No se pudo abrir el almacenamiento local",
   'workspace.storageErrorDetail': "El navegador bloqueó IndexedDB o los datos del sitio. Revisa que no estés en una ventana privada.",
+  'naming.title': "Nombres",
+  'naming.locale': "Idioma de los nombres",
+  'naming.convention': "Convención",
+  'naming.example': "Una referencia a {collection} se llamará {field}.",
+  'naming.applyAll': "Aplicar a los campos existentes",
+  'naming.applied': "Nombres de campos convertidos a {convention}",
+  'naming.sampleCollection': "pedidos",
 } as const;
 
 export type Messages = { [K in keyof typeof es]: string };

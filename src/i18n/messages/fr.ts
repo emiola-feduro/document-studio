@@ -663,4 +663,11 @@ export const fr: Messages = {
   'workspace.noProject': "Aucun projet ouvert",
   'workspace.storageError': "Impossible d'ouvrir le stockage local",
   'workspace.storageErrorDetail': "Le navigateur a bloqué IndexedDB ou les données du site. Vérifiez que vous n’êtes pas en navigation privée.",
+  'naming.title': "Noms",
+  'naming.locale': "Langue des noms",
+  'naming.convention': "Convention",
+  'naming.example': "Une référence à {collection} s’appellera {field}.",
+  'naming.applyAll': "Appliquer aux champs existants",
+  'naming.applied': "Noms de champs convertis en {convention}",
+  'naming.sampleCollection': "commandes",
 };

@@ -24,7 +24,7 @@ describe('engines', () => {
   });
 
   it('switches engine: id fields, types, references and subcollections', () => {
-    const project = createProject('p', 'firestore');
+    const project = { ...createProject('p', 'firestore'), namesLocale: 'en' as const };
     const users = createCollection('firestore', 'users');
     users.fields.push(createField({ name: 'createdAt', type: 'timestamp' }));
     const orders = { ...createCollection('firestore', 'orders'), kind: 'subcollection' as const, parentId: users.id };

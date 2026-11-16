@@ -223,7 +223,7 @@ export const planImport = (project: Project, inputs: ImportedCollection[]): Impo
       if (values.length === 0) continue;
       const byName = /(Id|_id|Ids|_ids)$/.test(field.name);
       const target = [...idSets.values()].find((s) => s.id !== collection.id && values.every((v) => s.ids.has(v)));
-      const named = !target && byName ? [...idSets.values()].find((s) => camelCase(singular(s.name)) === field.name.replace(/(Ids?|_ids?)$/, '')) : undefined;
+      const named = !target && byName ? [...idSets.values()].find((s) => camelCase(singular(s.name, project.namesLocale)).toLowerCase() === camelCase(field.name.replace(/(Ids?|_ids?)$/, '')).toLowerCase()) : undefined;
       const match = target ?? named;
       if (!match) continue;
       holder.reference = { collectionId: match.id, fieldPath: project.engine === 'firestore' ? '__name__' : ID_KEY };
