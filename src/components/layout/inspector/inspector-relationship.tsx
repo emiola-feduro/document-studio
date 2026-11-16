@@ -4,7 +4,7 @@ import { defaultStorage } from '../../../domain/relationships';
 import type { Cardinality, Relationship } from '../../../domain/types';
 import useAdvisor from '../../../hooks/data/use-advisor';
 import useT from '../../../hooks/ui/use-t';
-import { deleteRelationship, updateRelationship } from '../../../lib/actions';
+import { applyIssueFix, deleteRelationship, updateRelationship } from '../../../lib/actions';
 import useProjectStore from '../../../stores/use-project-store';
 import useUiStore from '../../../stores/use-ui-store';
 import Button from '../../ui/button/button';
@@ -84,6 +84,23 @@ const InspectorRelationship = ({ relationship }: { relationship: Relationship })
             </select>
           </div>
         </div>
+        {kind === 'embed' && (
+          <div className="space-y-1">
+            <label htmlFor={`rel-pattern-${id}`} className="block font-medium">
+              {t('inspector.copyPattern')}
+            </label>
+            <select
+              id={`rel-pattern-${id}`}
+              className="field field-sm"
+              value={relationship.pattern ?? ''}
+              onChange={(e) => updateRelationship(id, (r) => (e.target.value ? (r.pattern = e.target.value as 'subset') : delete r.pattern))}
+            >
+              <option value="">{t('inspector.patternUndeclared')}</option>
+              <option value="extendedReference">{t('advisor.pattern.extendedReference.name')}</option>
+              <option value="subset">{t('advisor.pattern.subset.name')}</option>
+            </select>
+          </div>
+        )}
         {kind === 'reference' && cardinality === 'N:M' && from.collectionId !== to.collectionId && (
           <Checkbox label={t('inspector.twoWay', { name: nameOf(to.collectionId) })} checked={Boolean(relationship.twoWay)} onChange={(v) => updateRelationship(id, (r) => (v ? (r.twoWay = true) : delete r.twoWay), true)} />
         )}
@@ -97,6 +114,11 @@ const InspectorRelationship = ({ relationship }: { relationship: Relationship })
               <span className="font-semibold">{t(pattern.name)}: </span>
               {t(pattern.text)}
             </p>
+          )}
+          {rec.kind !== kind && (
+            <Button size="sm" onClick={() => applyIssueFix({ kind: 'changeKind', relationshipId: id, to: rec.kind })}>
+              {rec.kind === 'reference' ? t('advisor.fix.toReference') : t('advisor.fix.toEmbed')}
+            </Button>
           )}
         </div>
       </InspectorSection>

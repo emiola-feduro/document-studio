@@ -114,6 +114,8 @@ export type Relationship = {
   storage: 'single' | 'array';
   /** N:M with arrays on both sides. */
   twoWay?: boolean;
+  /** Declared copy pattern of an embed: the full document repeated, or only some of its fields. */
+  pattern?: 'extendedReference' | 'subset';
   /** With `twoWay`, the array of references kept in the target collection. */
   reverseFieldPath?: string;
 };
@@ -129,6 +131,8 @@ export type Project = {
   /** Language of collection and field names, used to build singulars for reference fields. */
   namesLocale?: Locale;
   namingConvention?: NamingConvention;
+  /** Ids of advisor issues the person chose to ignore. */
+  dismissedIssues?: string[];
   collections: Collection[];
   relationships: Relationship[];
   /** By collection id. */

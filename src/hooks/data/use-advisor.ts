@@ -1,14 +1,19 @@
 import { useMemo } from 'react';
-import { adviseProject, type Issue } from '../../domain/advisor';
+import { activeIssues, type Issue } from '../../domain/advisor';
 import useProjectStore from '../../stores/use-project-store';
 import usePreferencesStore from '../../stores/use-preferences-store';
 
-/** Advisor warnings for the open project, recomputed when the model or the language changes. */
-const useAdvisor = (): Issue[] => {
+const useAdvisorResult = () => {
   const project = useProjectStore((s) => s.project);
   const locale = usePreferencesStore((s) => s.locale);
-  return useMemo(() => (project ? adviseProject(project) : []), [project, locale]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => (project ? activeIssues(project) : { issues: [], dismissedCount: 0 }), [project, locale]); // eslint-disable-line react-hooks/exhaustive-deps
 };
+
+/** Advisor warnings for the open project, without the ignored ones, recomputed when the model or the language changes. */
+const useAdvisor = (): Issue[] => useAdvisorResult().issues;
+
+/** How many warnings the person chose to ignore. */
+export const useDismissedCount = () => useAdvisorResult().dismissedCount;
 
 /** Number of warnings per collection or relationship id. */
 export const useIssueCounts = () => {

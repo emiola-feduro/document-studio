@@ -1,7 +1,8 @@
 import { t } from '../i18n';
+import type { IssueFix } from '../domain/advisor';
 import { changeEngine } from '../domain/engine-change';
 import { applyConvention } from '../domain/naming';
-import { ENGINES } from '../domain/engines';
+import { ENGINES, ID_KEY } from '../domain/engines';
 import { createCollection, createField, duplicateCollection as duplicate, nextName, removeCollection, uid } from '../domain/model';
 import {
   addChild,
@@ -17,7 +18,7 @@ import {
   toMongoPath,
   walkFields,
 } from '../domain/paths';
-import { createRelationship, rebuildRelationshipField, removeRelationship, type RelationshipInput } from '../domain/relationships';
+import { createRelationship, defaultStorage, rebuildRelationshipField, removeRelationship, type RelationshipInput } from '../domain/relationships';
 import { generateDocuments, generateAllDocuments } from '../domain/random-values';
 import type { Collection, CollectionOptions, DocIndex, EngineId, Field, FieldType, ModelVersion, Project, Relationship, SampleDocument } from '../domain/types';
 import usePreferencesStore from '../stores/use-preferences-store';
@@ -138,6 +139,68 @@ export const setDatabaseName = (name: string) =>
     if (name.trim()) draft.databaseName = name;
     else delete draft.databaseName;
   }, 'database-name');
+
+/* Advisor */
+
+export const fixLabel = (fix: IssueFix): string => {
+  switch (fix.kind) {
+    case 'createIndex':
+      return t('advisor.fix.createIndex');
+    case 'addMaxItems':
+      return t('advisor.fix.addMaxItems', { value: fix.value });
+    case 'changeKind':
+      return fix.to === 'reference' ? t('advisor.fix.toReference') : t('advisor.fix.toEmbed');
+    case 'declarePattern':
+      return fix.pattern === 'subset' ? t('advisor.fix.subset') : t('advisor.fix.extendedReference');
+    case 'setType':
+      return t('advisor.fix.setType', { type: fix.type });
+    case 'addSchemaVersion':
+      return t('advisor.fix.addSchemaVersion');
+  }
+};
+
+/** Applies one of the advisor quick fixes as a single undoable change. */
+export const applyIssueFix = (fix: IssueFix) => {
+  switch (fix.kind) {
+    case 'createIndex':
+      addIndex(fix.collectionId, fix.path);
+      break;
+    case 'addMaxItems':
+      updateCollection(fix.collectionId, (c) => {
+        const field = fieldAtPath(c.fields, fix.path);
+        if (field) field.maxItems = fix.value;
+      });
+      break;
+    case 'changeKind':
+      updateRelationship(fix.relationshipId, (r) => ((r.kind = fix.to), (r.storage = defaultStorage(fix.to, r.cardinality))), true);
+      break;
+    case 'declarePattern':
+      updateRelationship(fix.relationshipId, (r) => void (r.pattern = fix.pattern));
+      break;
+    case 'setType':
+      updateCollection(fix.collectionId, (c) => {
+        const field = fieldAtPath(c.fields, fix.path);
+        if (field) setFieldType(field, fix.type);
+      });
+      break;
+    case 'addSchemaVersion':
+      updateCollection(fix.collectionId, (c) => {
+        const at = c.fields.findIndex((f) => f.name === ID_KEY) + 1;
+        c.fields.splice(at, 0, createField({ name: 'schemaVersion', type: 'int', required: true, defaultValue: '1', minimum: 1 }));
+      });
+      break;
+  }
+  useUiStore.getState().notify(t('advisor.fixApplied', { fix: fixLabel(fix) }));
+};
+
+export const dismissIssue = (id: string) => {
+  mutate((draft) => {
+    draft.dismissedIssues = [...new Set([...(draft.dismissedIssues ?? []), id])];
+  });
+  useUiStore.getState().notify(t('advisor.dismissed'));
+};
+
+export const restoreDismissedIssues = () => mutate((draft) => void delete draft.dismissedIssues);
 
 /** Puts a saved version back as the model; sample documents stay, and Ctrl+Z undoes it. */
 export const restoreVersion = (snapshot: ModelVersion['snapshot']) =>

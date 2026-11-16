@@ -1,6 +1,8 @@
 import { countFields } from '../../../domain/model';
 import { PATTERNS } from '../../../domain/advisor';
-import useAdvisor from '../../../hooks/data/use-advisor';
+import useAdvisor, { useDismissedCount } from '../../../hooks/data/use-advisor';
+import { restoreDismissedIssues } from '../../../lib/actions';
+import Button from '../../ui/button/button';
 import useT from '../../../hooks/ui/use-t';
 import useProjectStore from '../../../stores/use-project-store';
 import PanelHideButton from '../../ui/panel-hide-button/panel-hide-button';
@@ -12,6 +14,7 @@ const InspectorOverview = () => {
   const t = useT();
   const project = useProjectStore((s) => s.project);
   const issues = useAdvisor();
+  const dismissed = useDismissedCount();
   if (!project) return null;
   const { collections, relationships } = project;
   const documents = Object.values(project.documents ?? {}).reduce((n, d) => n + d.length, 0);
@@ -54,6 +57,11 @@ const InspectorOverview = () => {
       </div>
       <InspectorSection title={serious.length ? t('common.warningsTitle', { count: serious.length }) : t('common.warnings')}>
         <InspectorIssueList issues={serious} />
+        {dismissed > 0 && (
+          <Button size="sm" variant="ghost" className="mt-2" onClick={restoreDismissedIssues}>
+            {t('advisor.restoreDismissed', { count: dismissed })}
+          </Button>
+        )}
       </InspectorSection>
       {tips.length > 0 && (
         <InspectorSection title={t('inspector.tips', { count: tips.length })}>
