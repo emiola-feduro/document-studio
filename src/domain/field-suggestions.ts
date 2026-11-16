@@ -45,17 +45,3 @@ export const PATTERN_PRESETS = (): { value: string; label: string }[] => [
   { value: '^[0-9]{5}$', label: t('suggest.zip') },
   { value: '^#[0-9a-fA-F]{6}$', label: t('suggest.color') },
 ];
-
-/** Partial filter expressions for an index, built from the collection's paths. */
-export const filterSuggestions = (paths: { path: string; field: Field }[]): { value: string; label?: string }[] => {
-  const out: { value: string; label?: string }[] = [];
-  for (const { path, field } of paths.slice(0, 12)) {
-    const p = path.replace(/\[\]/g, '');
-    out.push({ value: `{ "${p}": { "$exists": true } }`, label: t('suggest.exists') });
-    if (field.type === 'enum' && field.enumValues?.[0]) out.push({ value: `{ "${p}": ${JSON.stringify(field.enumValues[0])} }`, label: t('suggest.equals', { value: field.enumValues[0] }) });
-    if (['int', 'long', 'double', 'decimal', 'number'].includes(field.type)) out.push({ value: `{ "${p}": { "$gt": 0 } }`, label: t('suggest.positive') });
-    if (field.type === 'bool') out.push({ value: `{ "${p}": true }`, label: t('suggest.onlyTrue') });
-    if (field.nullable) out.push({ value: `{ "${p}": { "$type": "${field.type === 'date' ? 'date' : 'string'}" } }`, label: t('suggest.notNull') });
-  }
-  return out;
-};

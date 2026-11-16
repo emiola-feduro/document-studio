@@ -14,6 +14,8 @@ import {
   renamePath,
   setFieldType,
   setItemsType,
+  toMongoPath,
+  walkFields,
 } from '../domain/paths';
 import { createRelationship, rebuildRelationshipField, removeRelationship, type RelationshipInput } from '../domain/relationships';
 import { generateDocuments, generateAllDocuments } from '../domain/random-values';
@@ -266,6 +268,17 @@ export const addIndex = (collectionId: string, path = '') => {
   const index: DocIndex = { id: uid(), name: '', nameIsCustom: false, keys: [{ path, order: 1 }] };
   updateCollection(collectionId, (c) => c.indexes.push(index));
   return index.id;
+};
+
+/** Adds a compound index from MongoDB-style paths, as the query builder asks for one. */
+export const addIndexWithKeys = (collectionId: string, keys: { path: string; order: 1 | -1 }[]) => {
+  updateCollection(collectionId, (c) => {
+    const paths = walkFields(c.fields).map((e) => e.path);
+    const own = (path: string) => paths.find((p) => toMongoPath(p) === path) ?? path;
+    c.indexes.push({ id: uid(), name: '', nameIsCustom: false, keys: keys.map((k) => ({ path: own(k.path), order: k.order })) });
+  });
+  const collection = useProjectStore.getState().project?.collections.find((c) => c.id === collectionId);
+  useUiStore.getState().notify(t('query.indexAdded', { collection: collection?.name ?? '' }));
 };
 
 export const updateIndex = (collectionId: string, indexId: string, change: (i: DocIndex) => void, key?: string) =>

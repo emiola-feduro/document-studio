@@ -4,12 +4,12 @@ import type { Language } from '../../../domain/outputs';
 type Token = { text: string; kind: 'kw' | 'comment' | 'string' | 'number' | 'key' | 'plain' };
 
 const KEYWORDS: Record<Language, RegExp> = {
-  js: /\b(db|use|const|let|var|function|return|if|else|for|new|true|false|null|undefined|createCollection|createIndex|runCommand|insertMany|ObjectId|ISODate|NumberDecimal|NumberLong|UUID|emit|throw)\b/g,
-  ts: /\b(import|export|from|const|type|interface|new|return|true|false|null|undefined|string|number|boolean|unknown|Array|Schema|model)\b/g,
+  js: /\b(db|use|const|let|var|function|return|if|else|for|new|true|false|null|undefined|createCollection|createIndex|runCommand|insertMany|aggregate|find|sort|skip|limit|getCollection|ObjectId|ISODate|NumberDecimal|NumberLong|UUID|emit|throw)\b/g,
+  ts: /\b(import|export|from|const|type|interface|new|return|true|false|null|undefined|string|number|boolean|unknown|Array|Schema|model|async|await|Promise|query|where|orderBy|limit|collection|getDocs|getDoc|doc|and|or)\b/g,
   json: /\b(true|false|null)\b/g,
   prisma: /\b(datasource|generator|model|type|enum|provider|url|env|String|Int|BigInt|Float|Boolean|DateTime|Json|Bytes)\b|@@?[a-zA-Z.]+/g,
   rules: /\b(rules_version|service|match|allow|read|write|create|update|delete|if|function|return|is|in|true|false|null|request|resource|data|keys|hasAll|hasOnly|size|matches|string|int|float|number|bool|map|list|timestamp|latlng|path|bytes)\b/g,
-  sh: /\b(curl|DB|COUCH_URL)\b|-[XHd]\b/g,
+  sh: /\b(curl|DB|COUCH_URL|POST|GET)\b|-[XHd]\b/g,
   sql: /\b(CREATE|PRIMARY|INDEX|IF|NOT|EXISTS|ON|DISTINCT|ARRAY|FOR|IN|END|DESC|ASC|WHERE)\b/g,
 };
 

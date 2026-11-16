@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import { filterSuggestions } from '../../../domain/field-suggestions';
 import { suggestIndexName } from '../../../domain/indexes';
 import { allPaths } from '../../../domain/paths';
+import { queryPaths } from '../../../domain/query-builder';
+import useQueryFilter from '../../../hooks/data/use-query-filter';
 import type { Collection, DocIndex, EngineId, IndexOrder } from '../../../domain/types';
 import useT from '../../../hooks/ui/use-t';
 import { deleteIndex, updateIndex } from '../../../lib/actions';
@@ -28,6 +30,9 @@ const InspectorIndexItem = ({ collection, index, engine, position }: InspectorIn
   const { id } = index;
   const set = (change: (i: DocIndex) => void) => updateIndex(collection.id, id, change, `index:${id}`);
   const paths = allPaths(collection);
+  // partialFilterExpression takes the same JSON as a query filter, on paths outside arrays.
+  const filterPaths = useMemo(() => queryPaths(collection).filter((p) => !p.inArray), [collection]);
+  const partial = useQueryFilter(engine, filterPaths, index.partialFilter ?? '');
   const listId = `paths-${collection.id}`;
   const suggestion = suggestIndexName(index.keys, index.wildcard);
 
@@ -134,18 +139,17 @@ const InspectorIndexItem = ({ collection, index, engine, position }: InspectorIn
             id={`index-filter-${id}`}
             value={index.partialFilter ?? ''}
             onChange={(v) => set((i) => (v ? (i.partialFilter = v) : delete i.partialFilter))}
-            suggestions={filterSuggestions(paths.filter((p) => !p.inArray))}
-            columns={paths.map((p) => p.path.replace(/\[\]/g, ''))}
-            invalid={(() => {
-              if (!index.partialFilter?.trim()) return false;
-              try {
-                JSON.parse(index.partialFilter);
-                return false;
-              } catch {
-                return true;
-              }
-            })()}
+            suggestions={partial.suggestions}
+            columns={[]}
+            placeholder={partial.placeholder}
+            invalid={Boolean(partial.error)}
+            describedBy={partial.error ? `index-filter-error-${id}` : undefined}
           />
+          {partial.error && (
+            <span id={`index-filter-error-${id}`} className={`block text-[0.9em] ${partial.invalid ? 'text-danger' : 'text-warning'}`}>
+              {partial.error}
+            </span>
+          )}
         </div>
       )}
       {engine === 'mongodb' && (

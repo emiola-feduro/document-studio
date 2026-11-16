@@ -1,0 +1,87 @@
+import useQueryBuilder from '../../../hooks/data/use-query-builder';
+import useT from '../../../hooks/ui/use-t';
+import { addIndexWithKeys } from '../../../lib/actions';
+import { downloadText } from '../../../lib/project-file';
+import useUiStore from '../../../stores/use-ui-store';
+import PanelsRestoreButton from '../../layout/panels-menu/panels-restore-button';
+import Button from '../button/button';
+import SchemaViewCode from '../schema-view/schema-view-code';
+import QueryBuilderFields from './query-builder-fields';
+import QueryBuilderJoins from './query-builder-joins';
+import QueryBuilderOptions from './query-builder-options';
+import QueryBuilderRoot from './query-builder-root';
+
+/** Builds a query on a base collection, resolving references, in the language of the project engine. */
+const QueryBuilder = () => {
+  const t = useT();
+  const builder = useQueryBuilder();
+  const { result, root, spec, clear, collections } = builder;
+
+  const copy = async () => {
+    const { notify } = useUiStore.getState();
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result.code);
+      notify(t('query.copied'));
+    } catch {
+      notify(t('query.copyFailed'), 'error');
+    }
+  };
+
+  return (
+    <div className="grid h-full min-h-0 grid-cols-1 bg-bg md:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
+      <div className="relative min-h-0 space-y-5 overflow-y-auto border-r border-line bg-surface p-4">
+        <QueryBuilderRoot builder={builder} />
+        {root && (
+          <>
+            <QueryBuilderJoins builder={builder} />
+            <QueryBuilderFields builder={builder} />
+            <QueryBuilderOptions builder={builder} />
+          </>
+        )}
+      </div>
+      <div className="flex min-h-0 flex-col">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
+          <h2 className="mr-auto font-semibold">{t('query.title')}</h2>
+          <Button size="sm" variant="ghost" onClick={clear} disabled={!spec.rootId}>
+            {t('query.clear')}
+          </Button>
+          <Button size="sm" onClick={() => void copy()} disabled={!result}>
+            {t('common.copy')}
+          </Button>
+          <Button size="sm" variant="primary" disabled={!result} onClick={() => result && downloadText(result.fileName, result.code, 'text/plain')}>
+            {t('query.download')}
+          </Button>
+          <PanelsRestoreButton />
+        </div>
+        {result ? (
+          <>
+            {(result.warnings.length > 0 || result.missingIndex) && (
+              <div className="space-y-2 border-b border-line bg-surface px-4 py-3" role="status">
+                <ul className="space-y-1">
+                  {result.warnings.map((w) => (
+                    <li key={w} className="text-warning">
+                      {w}
+                    </li>
+                  ))}
+                </ul>
+                {result.missingIndex && (
+                  <Button size="sm" onClick={() => addIndexWithKeys(result.missingIndex!.collectionId, result.missingIndex!.keys)}>
+                    {t('query.addIndex')}
+                  </Button>
+                )}
+              </div>
+            )}
+            <div className="min-h-0 flex-1 overflow-auto">
+              <SchemaViewCode code={result.code} language={result.language} />
+            </div>
+          </>
+        ) : (
+          <p className="p-6 text-muted">{collections.length ? t('query.empty') : t('query.noCollections')}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default QueryBuilder;
