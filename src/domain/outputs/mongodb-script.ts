@@ -11,9 +11,9 @@ export type MongoScriptOptions = {
   collMod?: boolean;
 };
 
-const ref = (name: string) => (isIdentifier(name) ? `db.${name}` : `db.getCollection(${JSON.stringify(name)})`);
+export const ref = (name: string) => (isIdentifier(name) ? `db.${name}` : `db.getCollection(${JSON.stringify(name)})`);
 
-const indexOptions = (collection: Collection, index: DocIndex, warnings: string[]) => {
+export const indexOptions = (collection: Collection, index: DocIndex, warnings: string[]) => {
   const options: Record<string, unknown> = { name: indexName(index) };
   if (index.unique) options.unique = true;
   if (index.sparse) options.sparse = true;
@@ -26,7 +26,7 @@ const indexOptions = (collection: Collection, index: DocIndex, warnings: string[
   return options;
 };
 
-const createIndexes = (collection: Collection, warnings: string[]) => {
+export const createIndexes = (collection: Collection, warnings: string[]) => {
   const lines: string[] = [];
   const { ttl, timeseries } = collection.options;
   for (const index of collection.indexes) {
@@ -42,7 +42,7 @@ const createIndexes = (collection: Collection, warnings: string[]) => {
   return lines;
 };
 
-const createOptions = (collection: Collection, warnings: string[]) => {
+export const createOptions = (collection: Collection, warnings: string[]) => {
   const { validationLevel, validationAction, capped, timeseries, ttl } = collection.options;
   const options: Record<string, unknown> = {};
   if (timeseries?.timeField) {

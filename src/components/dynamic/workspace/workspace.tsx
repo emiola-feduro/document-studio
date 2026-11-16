@@ -3,9 +3,10 @@ import PanelsFloatingBar from '../../layout/panels-menu/panels-floating-bar';
 import DocCanvas from '../../ui/doc-canvas/doc-canvas';
 import DocumentsView from '../../ui/documents-view/documents-view';
 import QueryBuilder from '../../ui/query-builder/query-builder';
+import VersionsView from '../../ui/versions-view/versions-view';
 import SchemaView from '../../ui/schema-view/schema-view';
 
-/** Center area once the project is loaded: diagram, engine output, sample documents or queries. */
+/** Center area once the project is loaded: diagram, engine output, sample documents, queries or versions. */
 const Workspace = () => {
   const view = useUiStore((s) => s.view);
 
@@ -18,6 +19,7 @@ const Workspace = () => {
       {view === 'schema' && <SchemaView />}
       {view === 'documents' && <DocumentsView />}
       {view === 'query' && <QueryBuilder />}
+      {view === 'versions' && <VersionsView />}
       {view === 'diagram' && <PanelsFloatingBar />}
     </main>
   );

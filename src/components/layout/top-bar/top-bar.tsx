@@ -46,6 +46,7 @@ const TopBar = () => {
               { value: 'schema', label: t('topBar.schema') },
               { value: 'documents', label: t('topBar.documents') },
               { value: 'query', label: t('topBar.query') },
+              { value: 'versions', label: t('topBar.versions') },
             ]}
           />
         )}

@@ -19,7 +19,7 @@ import {
 } from '../domain/paths';
 import { createRelationship, rebuildRelationshipField, removeRelationship, type RelationshipInput } from '../domain/relationships';
 import { generateDocuments, generateAllDocuments } from '../domain/random-values';
-import type { Collection, CollectionOptions, DocIndex, EngineId, Field, FieldType, Project, Relationship, SampleDocument } from '../domain/types';
+import type { Collection, CollectionOptions, DocIndex, EngineId, Field, FieldType, ModelVersion, Project, Relationship, SampleDocument } from '../domain/types';
 import usePreferencesStore from '../stores/use-preferences-store';
 import useProjectStore from '../stores/use-project-store';
 import useUiStore from '../stores/use-ui-store';
@@ -138,6 +138,14 @@ export const setDatabaseName = (name: string) =>
     if (name.trim()) draft.databaseName = name;
     else delete draft.databaseName;
   }, 'database-name');
+
+/** Puts a saved version back as the model; sample documents stay, and Ctrl+Z undoes it. */
+export const restoreVersion = (snapshot: ModelVersion['snapshot']) =>
+  mutate((draft) => {
+    const { documents } = draft;
+    Object.assign(draft, structuredClone({ ...snapshot, id: draft.id, name: draft.name, createdAt: draft.createdAt }));
+    draft.documents = documents;
+  });
 
 /** Names language and convention used for new reference and embedded fields. */
 export const setNaming = (change: Partial<Pick<Project, 'namesLocale' | 'namingConvention'>>) =>

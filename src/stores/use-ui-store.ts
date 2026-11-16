@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type Selection = { kind: 'collection' | 'relationship'; id: string } | null;
-export type CenterView = 'diagram' | 'schema' | 'documents' | 'query';
+export type CenterView = 'diagram' | 'schema' | 'documents' | 'query' | 'versions';
 /** Right-click menu on the canvas. Without a collection id it is the menu of the empty canvas. */
 export type ContextMenuState = { x: number; y: number; collectionId?: string; flowPosition?: { x: number; y: number } };
 export type Toast = { id: number; message: string; tone: 'info' | 'error' };

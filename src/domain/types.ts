@@ -137,4 +137,13 @@ export type Project = {
   updatedAt: number;
 };
 
+export type ModelVersion = {
+  id: string;
+  projectId: string;
+  name: string;
+  createdAt: number;
+  /** The model without its sample documents. */
+  snapshot: Omit<Project, 'documents'>;
+};
+
 export type ProjectMeta = Pick<Project, 'id' | 'name' | 'engine' | 'createdAt' | 'updatedAt'> & { collectionCount: number };
