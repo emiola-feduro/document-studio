@@ -7,7 +7,7 @@ export type CenterView = 'diagram' | 'schema' | 'documents' | 'query' | 'version
 export type ContextMenuState = { x: number; y: number; collectionId?: string; flowPosition?: { x: number; y: number } };
 export type Toast = { id: number; message: string; tone: 'info' | 'error' };
 export type FieldFocus = { collectionId: string; fieldId: string } | null;
-export type ImportTab = 'auto' | 'documents' | 'jsonSchema' | 'mongoose' | 'prisma' | 'firestoreIndexes';
+export type ImportTab = 'auto' | 'documents' | 'jsonSchema' | 'mongosh' | 'mongoose' | 'prisma' | 'firestoreIndexes';
 /** Where an import goes, and what a new project starts with when it comes from the new project dialog. */
 export type ImportTarget = { destination: 'current' | 'new'; name?: string; engine?: EngineId; databaseName?: string };
 
@@ -27,6 +27,9 @@ type UiState = {
   agentExport: { open: boolean; collectionId?: string };
   openApiExportOpen: boolean;
   importDialog: { open: boolean; tab: ImportTab; target: ImportTarget };
+  /** Output the Schema view should show next time it renders; it clears the request once applied. */
+  schemaOutput: string;
+  setSchemaOutput: (id: string) => void;
   documentsCollectionId: string | null;
   showRelationshipLabels: boolean;
   /** Object and array fields folded in the diagram, by field id. */
@@ -78,6 +81,8 @@ const useUiStore = create<UiState>((set, get) => ({
   agentExport: { open: false },
   openApiExportOpen: false,
   importDialog: { open: false, tab: 'documents', target: { destination: 'current' } },
+  schemaOutput: '',
+  setSchemaOutput: (schemaOutput) => set({ schemaOutput }),
   documentsCollectionId: null,
   showRelationshipLabels: true,
   collapsedFields: {},

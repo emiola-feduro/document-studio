@@ -5,7 +5,7 @@ import { couchDesignOutput, discriminator } from './outputs/couchdb';
 import { firestoreIndexes } from './outputs/firestore-indexes';
 import { firestoreRules } from './outputs/firestore-rules';
 import type { Language } from './outputs';
-import { bsonSchema } from './outputs/json-schema';
+import { validatorOf } from './outputs/json-schema';
 import { createIndexes, createOptions, indexOptions, ref } from './outputs/mongodb-script';
 import { databaseName, jsLiteral, parseLiteral, RawJs } from './outputs/shared';
 import { toMongoPath, walkFields } from './paths';
@@ -195,7 +195,7 @@ const diffCollection = (before: Collection, after: Collection, changes: Change[]
     change('dropIndex', indexName(index));
   }
   if (validationOf(before) !== validationOf(after)) change('changeValidation', after.options.validationLevel ?? 'strict');
-  const validator = JSON.stringify(bsonSchema(before)) !== JSON.stringify(bsonSchema(after)) || validationOf(before) !== validationOf(after);
+  const validator = JSON.stringify(validatorOf(before)) !== JSON.stringify(validatorOf(after)) || validationOf(before) !== validationOf(after);
   return { before, after, ops, dropIndexes, addIndexes, validator };
 };
 
@@ -317,7 +317,7 @@ const mongoMigration = (from: Snapshot, to: Snapshot, p: Plan, options: Migratio
       if (diff.after.options.timeseries?.timeField) warnings.push(t('output.timeseriesValidator', { name }));
       else {
         const { validationLevel = 'strict', validationAction = 'error' } = diff.after.options;
-        out.push(`db.runCommand(${jsLiteral({ collMod: name, validator: { $jsonSchema: bsonSchema(diff.after) }, validationLevel, validationAction })});`);
+        out.push(`db.runCommand(${jsLiteral({ collMod: name, validator: validatorOf(diff.after), validationLevel, validationAction })});`);
       }
     }
     for (const index of diff.dropIndexes) out.push(`${ref(name)}.dropIndex(${JSON.stringify(indexName(index))});`);

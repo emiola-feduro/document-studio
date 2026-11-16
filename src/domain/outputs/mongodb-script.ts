@@ -3,7 +3,7 @@ import { indexName, mongoKeys } from '../indexes';
 import { isIdentifier } from '../naming';
 import { toMongoPath } from '../paths';
 import type { Collection, DocIndex, Project } from '../types';
-import { bsonSchema } from './json-schema';
+import { validatorOf } from './json-schema';
 import { databaseName, jsLiteral, parseLiteral, type OutputResult } from './shared';
 
 export type MongoScriptOptions = {
@@ -52,7 +52,7 @@ export const createOptions = (collection: Collection, warnings: string[]) => {
   // Time series collections take no validator.
   if (timeseries?.timeField) warnings.push(t('output.timeseriesValidator', { name: collection.name }));
   else {
-    options.validator = { $jsonSchema: bsonSchema(collection) };
+    options.validator = validatorOf(collection);
     if (validationLevel) options.validationLevel = validationLevel;
     if (validationAction) options.validationAction = validationAction;
   }
@@ -73,7 +73,7 @@ export const mongoScript = (project: Project, options: MongoScriptOptions = {}):
     if (options.collMod) {
       const { validationLevel, validationAction } = collection.options;
       out.push(
-        `db.runCommand(${jsLiteral({ collMod: collection.name, validator: { $jsonSchema: bsonSchema(collection) }, validationLevel, validationAction })});`,
+        `db.runCommand(${jsLiteral({ collMod: collection.name, validator: validatorOf(collection), validationLevel, validationAction })});`,
       );
     } else {
       out.push(`db.createCollection(${JSON.stringify(collection.name)}, ${jsLiteral(createOptions(collection, warnings))});`);

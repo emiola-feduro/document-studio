@@ -40,8 +40,9 @@ const constraints = (field: Field, out: Schema) => {
 export type BsonOptions = { additionalProperties?: boolean };
 
 /**
- * MongoDB `$jsonSchema` for a field. MongoDB's validator rejects `$ref`, `format`, `default` and `title`,
- * so they are never written; descriptions are allowed.
+ * MongoDB `$jsonSchema` for a field. The validator accepts `title` and `description` as annotations
+ * at any level, and rejects `$ref`, `$schema`, `default`, `definitions`, `format` and `id`, which are
+ * never written.
  */
 export const bsonFieldSchema = (field: Field, options: BsonOptions = {}): Schema => {
   const out: Schema = {};
@@ -54,12 +55,14 @@ export const bsonFieldSchema = (field: Field, options: BsonOptions = {}): Schema
     };
   } else if (field.type !== 'any') {
     const bson = BSON[field.type] ?? 'string';
-    out.bsonType = field.nullable && bson !== 'null' ? [bson, 'null'] : bson;
+    out.bsonType = field.nullable && bson !== 'null' ? (field.nullFirst ? ['null', bson] : [bson, 'null']) : bson;
   }
+  if (field.title) out.title = field.title;
   if (field.description) out.description = field.description;
   constraints(field, out);
   if (field.minimum !== undefined && field.exclusiveMin) out.exclusiveMinimum = true;
-  if (field.type === 'object') Object.assign(out, bsonObject(field.children ?? [], options));
+  // An object with no fields declared says only that it is an object.
+  if (field.type === 'object' && (field.children?.length || options.additionalProperties === false)) Object.assign(out, bsonObject(field.children ?? [], options));
   if (field.type === 'array' && field.items) out.items = bsonFieldSchema(field.items, options);
   return out;
 };
@@ -77,13 +80,33 @@ const bsonObject = (fields: Field[], options: BsonOptions, root = false): Schema
   return out;
 };
 
-export const bsonSchema = (collection: Collection): Schema => ({
-  bsonType: 'object',
-  ...bsonObject(collection.fields, { additionalProperties: collection.options.additionalProperties }, true),
-});
+export const bsonSchema = (collection: Collection): Schema => {
+  const { validatorTitle, idInValidator, additionalProperties } = collection.options;
+  // A validator written without _id keeps it out, as MongoDB adds it anyway.
+  const fields = idInValidator === false ? collection.fields.filter((f) => f.name !== '_id') : collection.fields;
+  return {
+    bsonType: 'object',
+    ...(validatorTitle ? { title: validatorTitle } : {}),
+    ...bsonObject(fields, { additionalProperties }, true),
+  };
+};
+
+/** The whole validator: $jsonSchema, joined with $and to the other conditions ($expr...) when there are any. */
+export const validatorOf = (collection: Collection): Schema => {
+  const schema = { $jsonSchema: bsonSchema(collection) };
+  const extra = collection.options.extraValidator?.trim();
+  if (!extra) return schema;
+  try {
+    const parsed = JSON.parse(extra) as unknown;
+    const parts = Array.isArray(parsed) ? parsed : [parsed];
+    return { $and: [schema, ...parts] };
+  } catch {
+    return schema;
+  }
+};
 
 export const mongoJsonSchemaOutput = (project: Project) => ({
-  code: json(Object.fromEntries(project.collections.map((c) => [c.name, { $jsonSchema: bsonSchema(c) }]))),
+  code: json(Object.fromEntries(project.collections.map((c) => [c.name, validatorOf(c)]))),
   warnings: [] as string[],
 });
 

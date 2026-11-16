@@ -30,6 +30,10 @@ export type Field = {
   id: string;
   name: string;
   type: FieldType;
+  /** Annotation kept as written in an imported validator. */
+  title?: string;
+  /** The validator lists "null" before the type: ["null", "array"]. */
+  nullFirst?: boolean;
   /** The key must exist. */
   required: boolean;
   /** The value may be null. */
@@ -83,6 +87,12 @@ export type CollectionOptions = {
   additionalProperties?: boolean;
   /** CouchDB and single bucket databases tell document kinds apart with a field. */
   typeDiscriminator?: { field: string; value: string };
+  /** Title of the MongoDB validator, kept as written ("Users Validations"). */
+  validatorTitle?: string;
+  /** False when the validator does not declare _id, as written by hand. */
+  idInValidator?: boolean;
+  /** Other conditions of the validator next to $jsonSchema ($expr...), as JSON, joined with $and. */
+  extraValidator?: string;
 };
 
 export type Collection = {

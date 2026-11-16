@@ -276,6 +276,9 @@ const fieldFromSchema = (name: string, node: JsonSchemaNode, required: boolean, 
     if (Array.isArray(enumValues) && enumValues.includes('Point')) type = 'geoPoint';
   }
   const field = createField({ name, type: convertType(engine, type).type, required, nullable: list.includes('null') || (Array.isArray(node.enum) && node.enum.includes(null)) });
+  // ["null", "array"] keeps its order, so exporting gives back the same validator.
+  if (list.length > 1 && list[0] === 'null') field.nullFirst = true;
+  if (typeof node.title === 'string') field.title = node.title;
   if (typeof node.description === 'string') field.description = node.description;
   if (Array.isArray(node.enum)) field.enumValues = (node.enum as unknown[]).filter((v) => v !== null).map(String);
   for (const key of ['minLength', 'maxLength', 'minimum', 'maximum', 'minItems', 'maxItems'] as const) if (typeof node[key] === 'number') field[key] = node[key] as number;
@@ -296,9 +299,43 @@ const fieldsFromSchema = (node: JsonSchemaNode, engine: EngineId): Field[] => {
   return Object.entries(props).map(([name, child]) => fieldFromSchema(name, child, required.has(name), engine));
 };
 
+type ValidatorParts = { schema: JsonSchemaNode; extra: unknown[] };
+
+/** The $jsonSchema of a validator, and what sits next to it in an $and ($expr...). */
+export const validatorParts = (v: unknown): ValidatorParts | undefined => {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const o = v as JsonSchemaNode;
+  if (o.$jsonSchema) return { schema: o.$jsonSchema as JsonSchemaNode, extra: [] };
+  if (Array.isArray(o.$and)) {
+    const items = o.$and as unknown[];
+    const withSchema = items.find((x) => x && typeof x === 'object' && '$jsonSchema' in (x as object)) as JsonSchemaNode | undefined;
+    if (withSchema) return { schema: withSchema.$jsonSchema as JsonSchemaNode, extra: items.filter((x) => x !== withSchema) };
+  }
+  if (o.validator) return validatorParts(o.validator);
+  if (o.options) return validatorParts(o.options);
+  if (o.properties || o.bsonType || o.type) return { schema: o, extra: [] };
+  return undefined;
+};
+
+/** A collection from its validator, keeping what is needed to write the same validator back. */
+export const collectionFromValidator = (name: string, parts: ValidatorParts, engine: EngineId, index = 0): Collection => {
+  const { schema, extra } = parts;
+  const collection = createCollection(engine, name, { x: 80 + index * 340, y: 80 });
+  const fields = fieldsFromSchema(schema, engine);
+  const system = collection.fields.filter((s) => !fields.some((f) => f.name === s.name));
+  collection.fields = [...system, ...fields];
+  if (schema.additionalProperties === false) collection.options.additionalProperties = false;
+  if (typeof schema.title === 'string') collection.options.validatorTitle = schema.title;
+  const props = (schema.properties ?? {}) as JsonSchemaNode;
+  if (engine === 'mongodb' && !('_id' in props)) collection.options.idInValidator = false;
+  if (extra.length) collection.options.extraValidator = JSON.stringify(extra.length === 1 ? extra[0] : extra, null, 2);
+  return collection;
+};
+
 /**
- * Collections from a `$jsonSchema`: a bare schema, `{ $jsonSchema }`, `{ validator: { $jsonSchema } }`, the array
- * returned by `db.getCollectionInfos()`, or a map of collection name to any of those.
+ * Collections from a `$jsonSchema`: a bare schema, `{ $jsonSchema }`, `{ validator: { $jsonSchema } }`,
+ * a validator with `$and` ($jsonSchema next to $expr), the array returned by `db.getCollectionInfos()`,
+ * or a map of collection name to any of those.
  */
 export const importJsonSchema = (text: string, engine: EngineId, fallbackName: string): Collection[] => {
   let data: unknown;
@@ -307,41 +344,25 @@ export const importJsonSchema = (text: string, engine: EngineId, fallbackName: s
   } catch {
     throw new Error(t('file.invalidJson'));
   }
-  const schemaOf = (v: unknown): JsonSchemaNode | undefined => {
-    if (!v || typeof v !== 'object') return undefined;
-    const o = v as JsonSchemaNode;
-    if (o.$jsonSchema) return o.$jsonSchema as JsonSchemaNode;
-    if (o.validator) return schemaOf(o.validator);
-    if (o.options) return schemaOf(o.options);
-    if (o.properties || o.bsonType || o.type) return o;
-    return undefined;
-  };
-  const entries: [string, JsonSchemaNode][] = [];
+  const entries: [string, ValidatorParts][] = [];
   if (Array.isArray(data)) {
     data.forEach((info, i) => {
-      const schema = schemaOf(info);
+      const parts = validatorParts(info);
       const name = (info as JsonSchemaNode)?.name;
-      if (schema) entries.push([typeof name === 'string' ? name : `${fallbackName}_${i + 1}`, schema]);
+      if (parts) entries.push([typeof name === 'string' ? name : `${fallbackName}_${i + 1}`, parts]);
     });
   } else {
-    const direct = schemaOf(data);
+    const direct = validatorParts(data);
     if (direct) entries.push([fallbackName, direct]);
     else if (data && typeof data === 'object') {
       for (const [name, value] of Object.entries(data as JsonSchemaNode)) {
-        const schema = schemaOf(value);
-        if (schema) entries.push([name, schema]);
+        const parts = validatorParts(value);
+        if (parts) entries.push([name, parts]);
       }
     }
   }
   if (entries.length === 0) throw new Error(t('infer.noSchema'));
-  return entries.map(([name, schema], i) => {
-    const collection = createCollection(engine, name, { x: 80 + i * 340, y: 80 });
-    const fields = fieldsFromSchema(schema, engine);
-    const system = collection.fields.filter((s) => !fields.some((f) => f.name === s.name));
-    collection.fields = [...system, ...fields];
-    if (schema.additionalProperties === false) collection.options.additionalProperties = false;
-    return collection;
-  });
+  return entries.map(([name, parts], i) => collectionFromValidator(name, parts, engine, i));
 };
 
 /** Adds the indexes of a firestore.indexes.json to the collections with the same name. Returns how many were added. */

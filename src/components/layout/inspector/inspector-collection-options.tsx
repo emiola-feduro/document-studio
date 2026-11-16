@@ -19,6 +19,15 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
   const datePaths = allPaths(collection).filter((e) => ['date', 'timestamp'].includes(e.field.type) && !e.inArray).map((e) => e.path);
   const paths = allPaths(collection).filter((e) => !e.inArray).map((e) => e.path);
   const mongo = engine === 'mongodb';
+  const extraInvalid = (() => {
+    if (!options.extraValidator?.trim()) return false;
+    try {
+      JSON.parse(options.extraValidator);
+      return false;
+    } catch {
+      return true;
+    }
+  })();
 
   return (
     <InspectorSection title={t('inspector.options')}>
@@ -51,6 +60,36 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
                 <option value="warn">warn</option>
               </select>
             </div>
+          </div>
+        )}
+        {mongo && (
+          <div className="space-y-1">
+            <label htmlFor={`vtitle-${id}`} className="block font-medium">
+              {t('inspector.validatorTitle')}
+            </label>
+            <input id={`vtitle-${id}`} className="field field-sm" value={options.validatorTitle ?? ''} onChange={(e) => set((o) => (e.target.value ? (o.validatorTitle = e.target.value) : delete o.validatorTitle))} />
+          </div>
+        )}
+        {mongo && (
+          <div className="space-y-1">
+            <label htmlFor={`vextra-${id}`} className="block font-medium">
+              {t('inspector.extraValidator')}
+            </label>
+            <textarea
+              id={`vextra-${id}`}
+              className="field field-sm min-h-20 resize-y font-code text-[12px]"
+              value={options.extraValidator ?? ''}
+              spellCheck={false}
+              placeholder='{ "$expr": { "$gt": ["$fin", "$inicio"] } }'
+              aria-invalid={extraInvalid || undefined}
+              aria-describedby={extraInvalid ? `vextra-error-${id}` : undefined}
+              onChange={(e) => set((o) => (e.target.value.trim() ? (o.extraValidator = e.target.value) : delete o.extraValidator))}
+            />
+            {extraInvalid && (
+              <span id={`vextra-error-${id}`} className="block text-[0.9em] text-danger">
+                {t('inspector.extraValidatorInvalid')}
+              </span>
+            )}
           </div>
         )}
         <fieldset className="space-y-2">

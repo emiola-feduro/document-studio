@@ -5,6 +5,7 @@ import { firestoreIndexes } from './firestore-indexes';
 import { firestoreRules } from './firestore-rules';
 import { firestoreTypes } from './firestore-types';
 import { mongoJsonSchemaOutput, standardSchemaOutput } from './json-schema';
+import { mongoCreateScript } from './mongodb-create';
 import { mongoScript } from './mongodb-script';
 import { mongooseOutput } from './mongoose';
 import { prismaOutput } from './prisma';
@@ -12,7 +13,7 @@ import type { OutputResult } from './shared';
 
 export type Language = 'js' | 'ts' | 'json' | 'prisma' | 'rules' | 'sh' | 'sql';
 
-export type OutputOptions = { collMod?: boolean };
+export type OutputOptions = { collMod?: boolean; dropFirst?: boolean };
 
 export type OutputDef = {
   id: string;
@@ -35,6 +36,7 @@ const JSON_SCHEMA: OutputDef = {
 export const OUTPUTS: Record<EngineId, OutputDef[]> = {
   mongodb: [
     { id: 'mongosh', label: 'schema.out.mongosh', filename: (p) => `${base(p)}.mongodb.js`, language: 'js', generate: (p, o) => mongoScript(p, o) },
+    { id: 'create', label: 'schema.out.create', filename: () => 'create-db.js', language: 'js', generate: (p, o) => mongoCreateScript(p, o) },
     { id: 'jsonSchema', label: 'schema.out.bsonSchema', filename: (p) => `${base(p)}.jsonschema.json`, language: 'json', generate: mongoJsonSchemaOutput },
     { id: 'mongoose', label: 'schema.out.mongoose', filename: () => 'models.ts', language: 'ts', generate: mongooseOutput },
     { id: 'prisma', label: 'schema.out.prisma', filename: () => 'schema.prisma', language: 'prisma', generate: prismaOutput },

@@ -8,8 +8,8 @@ import { prismaOutput } from './prisma';
 const project = storeFixture('mongodb');
 const [customers, orders] = project.collections;
 
-/** Keywords MongoDB's validator rejects inside $jsonSchema. */
-const FORBIDDEN = ['$ref', 'format', 'default', 'title', '$schema', 'definitions'];
+/** Keywords MongoDB's validator rejects inside $jsonSchema (title and description are allowed annotations). */
+const FORBIDDEN = ['$ref', 'format', 'default', '$schema', 'definitions', 'id'];
 const keysDeep = (value: unknown): string[] =>
   value && typeof value === 'object' ? Object.entries(value).flatMap(([k, v]) => [k, ...keysDeep(v)]) : [];
 

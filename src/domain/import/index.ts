@@ -4,6 +4,7 @@ import { camelCase, singularize } from '../naming';
 import { toMongoPath, walkFields } from '../paths';
 import type { Collection, EngineId, Project, Relationship } from '../types';
 import { readMongoose } from './mongoose';
+import { readMongosh } from './mongosh';
 import { readPrisma } from './prisma';
 import type { ImportFormat, SchemaImport } from './types';
 
@@ -14,6 +15,7 @@ export const detectFormat = (text: string): ImportFormat | undefined => {
   const trimmed = text.trim();
   if (!trimmed) return undefined;
   if (/^\s*(model|datasource|generator)\s+\w+\s*\{/m.test(trimmed)) return 'prisma';
+  if (/\bdb\.createCollection\s*\(|\bcollMod\s*:|\bconst\s+collections\s*=\s*\{[\s\S]*\bvalidator\s*:/.test(trimmed)) return 'mongosh';
   if (/new\s+(?:mongoose\.)?Schema\s*(?:<[^>]*>)?\(/.test(trimmed)) return 'mongoose';
   try {
     const data = JSON.parse(trimmed) as unknown;
@@ -87,6 +89,18 @@ export const readSource = (project: Project, format: ImportFormat, sources: { na
     const copy = structuredClone(project);
     const added = sources.reduce((n, s) => n + importFirestoreIndexes(copy, s.text), 0);
     return { collections: [], relationships: [], documents: {}, stats: {}, warnings: added ? [] : [t('infer.indexesImported', { count: 0 })], skipped: [] };
+  }
+  if (format === 'mongosh') {
+    const read = sources.map((s) => readMongosh(s.text, engine));
+    return {
+      collections: read.flatMap((m) => m.collections),
+      relationships: read.flatMap((m) => m.relationships),
+      documents: {},
+      stats: {},
+      warnings: read.flatMap((m) => m.warnings),
+      skipped: read.flatMap((m) => m.skipped),
+      ...(read[0]?.databaseName ? { databaseName: read[0].databaseName } : {}),
+    };
   }
   const merged = sources.map((s) => (format === 'mongoose' ? readMongoose(s.text, engine) : readPrisma(s.text, engine)));
   return {

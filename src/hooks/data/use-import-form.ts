@@ -83,9 +83,10 @@ const useImportForm = () => {
 
   const canSubmit = Boolean(project && sources.length && format && !preview.error && (preview.result?.collections.length || preview.indexes) && (effectiveDestination === 'current' || projectName.trim()));
 
-  const submit = async () => {
+  /** Imports; with `viewScript`, then opens the creation script in the Schema view. */
+  const submit = async (viewScript = false) => {
     if (!project || !canSubmit || !format) return;
-    const { notify, select, setView } = useUiStore.getState();
+    const { notify, select, setView, setSchemaOutput } = useUiStore.getState();
     try {
       if (format === 'firestoreIndexes') {
         let added = 0;
@@ -98,7 +99,7 @@ const useImportForm = () => {
       }
       const result = preview.result!;
       if (effectiveDestination === 'new') {
-        const created = createProject(projectName.trim(), engine, target.databaseName);
+        const created = createProject(projectName.trim(), engine, target.databaseName || result.databaseName);
         created.namesLocale = chosenLocale;
         created.collections = result.collections;
         created.relationships = result.relationships;
@@ -106,7 +107,7 @@ const useImportForm = () => {
         layoutProject(created);
         close();
         await useProjectStore.getState().importProject(created);
-        setView('diagram');
+        setView(viewScript ? 'schema' : 'diagram');
         notify(t('import.created', { name: created.name, count: created.collections.length }));
       } else {
         // The new collections are laid out among themselves and placed below the current diagram.
@@ -118,7 +119,9 @@ const useImportForm = () => {
         notify(docs ? t('infer.imported', { count: result.collections.length, docs }) : t('infer.schemaImported', { count: result.collections.length }));
         close();
         if (result.collections[0]) select({ kind: 'collection', id: result.collections[0].id });
+        if (viewScript) setView('schema');
       }
+      if (viewScript) setSchemaOutput('create');
       for (const w of result.warnings.slice(0, 3)) notify(w, 'error');
     } catch (e) {
       notify(e instanceof Error ? e.message : t('export.importFailed'), 'error');
@@ -154,6 +157,8 @@ const useImportForm = () => {
     preview,
     canSubmit,
     submit,
+    // The creation script exists for MongoDB, from validators or a script.
+    canViewScript: canSubmit && (format === 'jsonSchema' || format === 'mongosh') && (effectiveDestination === 'new' ? engine : project?.engine) === 'mongodb',
   };
 };
 

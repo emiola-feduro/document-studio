@@ -947,6 +947,23 @@ export const es = {
   'queryEditor.switchMessage': "Estas partes no tienen traducción y se pierden al cambiar:",
   'queryEditor.switchConfirm': "Cambiar de todos modos",
   'query.meaning.not': "Negar el operador",
+  'schema.out.create': "Script de creación",
+  'create.noDatabase': "Escribe el nombre de la base de datos; mientras tanto el script usa app.",
+  'create.header': "Crea la base de datos y sus colecciones con sus validadores. Se puede correr otra vez: las colecciones que ya existen reciben el validador con collMod.",
+  'create.dropWarning': "CUIDADO: borra la base de datos entera, con todos sus documentos, antes de crearla de nuevo.",
+  'create.creationOnly': "Opciones que solo se aplican al crear la colección.",
+  'create.indexes': "Índices",
+  'schema.dropFirst': "Borrar y crear de cero",
+  'schema.command': "Para ejecutarlo",
+  'schema.copyCommand': "Copiar comando",
+  'import.noMongosh': "No se encontró db.createCollection(...) ni un validador con collMod.",
+  'import.noValidator': "{name} no tiene validador; se creó sin campos.",
+  'import.indexWithoutCollection': "Índices de {collection}, que el script no crea",
+  'import.formatMongosh': "Script de mongosh",
+  'import.viewScript': "Importar y ver script",
+  'inspector.extraValidator': "Otras reglas del validador ($expr)",
+  'inspector.extraValidatorInvalid': "No es JSON válido; el validador se escribe sin estas reglas.",
+  'inspector.validatorTitle': "Título del validador",
 } as const;
 
 export type Messages = { [K in keyof typeof es]: string };

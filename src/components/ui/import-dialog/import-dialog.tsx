@@ -8,15 +8,15 @@ import ImportDialogPreview from './import-dialog-preview';
 
 type Format = Exclude<ImportTab, 'auto'>;
 
-const FORMATS: Format[] = ['documents', 'jsonSchema', 'mongoose', 'prisma', 'firestoreIndexes'];
+const FORMATS: Format[] = ['documents', 'jsonSchema', 'mongosh', 'mongoose', 'prisma', 'firestoreIndexes'];
 
 /** Imports documents, a $jsonSchema, Mongoose or Prisma models, or Firestore indexes, with a live preview. */
 const ImportDialog = () => {
   const t = useT();
   const form = useImportForm();
-  const { open, tab, setTab, close, name, setName, needsName, text, setText, files, readFiles, clearFiles, format, detected, preview, canSubmit, submit } = form;
+  const { open, tab, setTab, close, name, setName, needsName, text, setText, files, readFiles, clearFiles, format, detected, preview, canSubmit, submit, canViewScript } = form;
   const label = (f: Format) =>
-    f === 'documents' ? t('import.formatDocuments') : f === 'prisma' ? t('import.formatPrisma') : f === 'mongoose' ? 'Mongoose' : f === 'jsonSchema' ? '$jsonSchema' : 'firestore.indexes.json';
+    f === 'documents' ? t('import.formatDocuments') : f === 'prisma' ? t('import.formatPrisma') : f === 'mongosh' ? t('import.formatMongosh') : f === 'mongoose' ? 'Mongoose' : f === 'jsonSchema' ? '$jsonSchema' : 'firestore.indexes.json';
   const accept = format === 'prisma' ? '.prisma,text/plain' : format === 'mongoose' ? '.js,.ts,.mjs,.cjs' : '.json,.ndjson,.jsonl,.js,.ts,.prisma,application/json,text/plain';
 
   return (
@@ -28,6 +28,7 @@ const ImportDialog = () => {
       footer={
         <>
           <Button onClick={close}>{t('common.cancel')}</Button>
+          {canViewScript && <Button onClick={() => void submit(true)}>{t('import.viewScript')}</Button>}
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
             {t('infer.import')}
           </Button>

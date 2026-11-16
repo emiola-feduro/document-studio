@@ -1,7 +1,7 @@
 import type { FieldStats } from '../infer';
 import type { Collection, Relationship, SampleDocument } from '../types';
 
-export type ImportFormat = 'documents' | 'jsonSchema' | 'mongoose' | 'prisma' | 'firestoreIndexes';
+export type ImportFormat = 'documents' | 'jsonSchema' | 'mongosh' | 'mongoose' | 'prisma' | 'firestoreIndexes';
 
 /** What an import adds: collections with their references, sample documents, and what could not be read. */
 export type SchemaImport = {
@@ -13,4 +13,6 @@ export type SchemaImport = {
   warnings: string[];
   /** Parts of the source that have no place in the model, such as hooks or validators written as code. */
   skipped: string[];
+  /** Database named by the source (use("x") in a mongosh script). */
+  databaseName?: string;
 };

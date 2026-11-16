@@ -9,7 +9,8 @@ describe('engines', () => {
     expect(convertType('firestore', 'date')).toEqual({ type: 'timestamp', lossy: false });
     expect(convertType('firestore', 'decimal')).toEqual({ type: 'double', lossy: true });
     expect(convertType('couchdb', 'timestamp')).toEqual({ type: 'date', lossy: false });
-    expect(convertType('mongodb', 'number')).toEqual({ type: 'double', lossy: false });
+    expect(convertType('mongodb', 'number')).toEqual({ type: 'number', lossy: false });
+    expect(convertType('firestore', 'number')).toEqual({ type: 'number', lossy: false });
     expect(convertType('mongodb', 'string')).toEqual({ type: 'string', lossy: false });
   });
 

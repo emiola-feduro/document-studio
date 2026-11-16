@@ -41,6 +41,7 @@ export const ENGINES: Record<EngineId, Engine> = {
       t('long', 'long', 'number'),
       t('double', 'double', 'number'),
       t('decimal', 'decimal', 'number'),
+      t('number', 'number', 'number'),
       t('bool', 'bool', 'other'),
       t('date', 'date', 'date'),
       t('timestamp', 'timestamp', 'date'),
