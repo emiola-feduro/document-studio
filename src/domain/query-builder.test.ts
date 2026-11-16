@@ -85,7 +85,9 @@ describe('query builder', () => {
 
   it('reports a filter that is not valid JSON', () => {
     const { project, clientes } = setup();
-    expect(mongoQuery(project, { rootId: clientes, joins: [], filter: '{ "nombre": ', limit: 0 })!.warnings[0]).toMatch(/JSON/);
+    const result = mongoQuery(project, { rootId: clientes, joins: [], filter: '{ "nombre": "Ana', limit: 0 })!;
+    expect(result.warnings).toEqual([]);
+    expect(result.filterError).toMatch(/JSON/);
   });
 
   it('writes Firestore SDK code, reads references apart and asks for the composite index', () => {

@@ -103,7 +103,9 @@ export const parseFilter = (text: string | undefined): FilterParse => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return { error: t('query.filterObject') };
     return { value: value as Record<string, unknown> };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : String(e) };
+    // The browser message is in English; only the position is kept, in the interface language.
+    const position = /position (\d+)/.exec(e instanceof Error ? e.message : '')?.[1];
+    return { error: position ? t('query.filterInvalidAt', { position: Number(position) + 1 }) : t('query.filterInvalid') };
   }
 };
 
@@ -140,6 +142,8 @@ export type QueryResult = {
   language: 'js' | 'ts' | 'sh';
   fileName: string;
   warnings: string[];
+  /** The filter could not be read; the field shows it, and the code leaves the filter out. */
+  filterError?: string;
   /** Firestore composite index the query needs, when the model does not have it yet. */
   missingIndex?: { collectionId: string; keys: { path: string; order: 1 | -1 }[] };
 };
@@ -188,7 +192,6 @@ export const mongoQuery = (project: Project, spec: QuerySpec): QueryResult | und
   if (!built) return undefined;
   const { root, joins, filter } = built;
   const warnings: string[] = [];
-  if (filter.error) warnings.push(t('query.filterInvalid', { error: filter.error }));
   const match = filter.value && Object.keys(filter.value).length ? toShell(filter.value) : undefined;
   const projection = mongoProjection(built);
   const sort = spec.sortPath ? { [spec.sortPath]: spec.sortOrder ?? 1 } : undefined;
@@ -201,7 +204,7 @@ export const mongoQuery = (project: Project, spec: QuerySpec): QueryResult | und
     if (sort) code += `\n  .sort(${jsLiteral(sort)})`;
     if (spec.skip) code += `\n  .skip(${spec.skip})`;
     if (spec.limit) code += `\n  .limit(${spec.limit})`;
-    return { code: `${header}\n${code};\n`, language: 'js', fileName: `${root.name}.query.js`, warnings };
+    return { code: `${header}\n${code};\n`, language: 'js', fileName: `${root.name}.query.js`, warnings, filterError: filter.error };
   }
 
   const aliases = joins.map((j) => j.as);
@@ -227,7 +230,7 @@ export const mongoQuery = (project: Project, spec: QuerySpec): QueryResult | und
   if (sort) stages.push({ $sort: sort });
   if (spec.skip) stages.push({ $skip: spec.skip });
   if (spec.limit) stages.push({ $limit: spec.limit });
-  return { code: `${header}\n${shellName(root.name)}.aggregate(${jsLiteral(stages)});\n`, language: 'js', fileName: `${root.name}.aggregate.js`, warnings };
+  return { code: `${header}\n${shellName(root.name)}.aggregate(${jsLiteral(stages)});\n`, language: 'js', fileName: `${root.name}.aggregate.js`, warnings, filterError: filter.error };
 };
 
 /* Firestore */
@@ -285,7 +288,6 @@ export const firestoreQuery = (project: Project, spec: QuerySpec): QueryResult |
   if (!built) return undefined;
   const { root, joins, filter } = built;
   const warnings: string[] = [];
-  if (filter.error) warnings.push(t('query.filterInvalid', { error: filter.error }));
   const paths = queryPaths(root);
   const tree = filter.value ? firestoreConditions(filter.value, paths, warnings) : { kind: 'and' as const, items: [] };
 
@@ -382,7 +384,7 @@ export const firestoreQuery = (project: Project, spec: QuerySpec): QueryResult |
   const hasIndex = root.indexes.some((i) => i.keys.length === keys.length && i.keys.every((k, n) => toMongoPath(k.path) === keys[n].path && (k.order === keys[n].order || fieldOf(paths, keys[n].path)?.field.type === 'array')));
   const missingIndex = needsIndex && !hasIndex ? { collectionId: root.id, keys } : undefined;
   if (needsIndex) warnings.push(hasIndex ? t('query.indexPresent') : t('query.indexNeeded', { fields: keys.map((k) => `${k.path} ${k.order === -1 ? 'desc' : 'asc'}`).join(', ') }));
-  return { code: header + code.join('\n') + '\n', language: 'ts', fileName: `${root.name}.query.ts`, warnings, missingIndex };
+  return { code: header + code.join('\n') + '\n', language: 'ts', fileName: `${root.name}.query.ts`, warnings, missingIndex, filterError: filter.error };
 };
 
 /* CouchDB */
@@ -392,7 +394,6 @@ export const couchQuery = (project: Project, spec: QuerySpec): QueryResult | und
   if (!built) return undefined;
   const { root, joins, filter } = built;
   const warnings: string[] = [];
-  if (filter.error) warnings.push(t('query.filterInvalid', { error: filter.error }));
   const { field: typeField, value: typeValue } = discriminator(root);
   const user = filter.value ? (mapEjson(filter.value, (_kind, text) => text) as Record<string, unknown>) : {};
   // Documents of every "collection" share the database, so the type field is always part of the selector.
@@ -421,7 +422,7 @@ export const couchQuery = (project: Project, spec: QuerySpec): QueryResult | und
       '',
     );
   }
-  return { code: lines.join('\n'), language: 'sh', fileName: `${root.name}.mango.http`, warnings };
+  return { code: lines.join('\n'), language: 'sh', fileName: `${root.name}.mango.http`, warnings, filterError: filter.error };
 };
 
 export const buildQuery = (project: Project, spec: QuerySpec): QueryResult | undefined =>

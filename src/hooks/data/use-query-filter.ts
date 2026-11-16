@@ -31,7 +31,7 @@ const useQueryFilter = (engine: EngineId | undefined, paths: QueryPath[], text: 
     // A path inside a subdocument or an array element is fine as long as it starts with a known path.
     return [...new Set(filterKeys(parsed.value))].filter((k) => !known.has(k) && ![...known].some((p) => k.startsWith(`${p}.`)));
   }, [parsed, paths]);
-  const error = parsed.error ? t('query.filterInvalid', { error: parsed.error }) : unknown.length ? t('query.unknown', { names: unknown.join(', ') }) : undefined;
+  const error = parsed.error ?? (unknown.length ? t('query.unknown', { names: unknown.join(', ') }) : undefined);
 
   return { suggestions, placeholder, error, invalid: Boolean(parsed.error) };
 };
