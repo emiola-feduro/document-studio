@@ -30,7 +30,7 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
         />
         {mongo && (
           <div className="flex flex-wrap gap-3">
-            <div className="min-w-32 flex-1 space-y-1">
+            <div className="min-w-40 flex-1 space-y-1">
               <label htmlFor={`vlevel-${id}`} className="block font-medium">
                 {t('inspector.validationLevel')}
               </label>
@@ -41,7 +41,7 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
                 <option value="off">off</option>
               </select>
             </div>
-            <div className="min-w-32 flex-1 space-y-1">
+            <div className="min-w-40 flex-1 space-y-1">
               <label htmlFor={`vaction-${id}`} className="block font-medium">
                 {t('inspector.validationAction')}
               </label>
@@ -56,7 +56,7 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
         <fieldset className="space-y-2">
           <legend className="font-medium">{t('inspector.ttl')}</legend>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-32 flex-1 space-y-1">
+            <div className="min-w-40 flex-1 space-y-1">
               <label htmlFor={`ttl-field-${id}`} className="block text-muted">
                 {t('inspector.ttlField')}
               </label>
@@ -84,7 +84,7 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
           <fieldset className="space-y-2">
             <legend className="font-medium">{t('inspector.timeseries')}</legend>
             <div className="flex flex-wrap gap-3">
-              <div className="min-w-32 flex-1 space-y-1">
+              <div className="min-w-40 flex-1 space-y-1">
                 <label htmlFor={`ts-time-${id}`} className="block text-muted">
                   {t('inspector.timeField')}
                 </label>
@@ -112,7 +112,7 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
               </div>
               {options.timeseries && (
                 <>
-                  <div className="min-w-32 flex-1 space-y-1">
+                  <div className="min-w-40 flex-1 space-y-1">
                     <label htmlFor={`ts-meta-${id}`} className="block text-muted">
                       {t('inspector.metaField')}
                     </label>
@@ -125,7 +125,7 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
                       ))}
                     </select>
                   </div>
-                  <div className="min-w-28 flex-1 space-y-1">
+                  <div className="min-w-40 flex-1 space-y-1">
                     <label htmlFor={`ts-gran-${id}`} className="block text-muted">
                       {t('inspector.granularity')}
                     </label>
@@ -157,13 +157,13 @@ const InspectorCollectionOptions = ({ collection, engine }: InspectorCollectionO
           <fieldset className="space-y-2">
             <legend className="font-medium">{t('inspector.typeField')}</legend>
             <div className="flex flex-wrap gap-3">
-              <div className="min-w-28 flex-1 space-y-1">
+              <div className="min-w-40 flex-1 space-y-1">
                 <label htmlFor={`type-field-${id}`} className="block text-muted">
                   {t('inspector.typeFieldName')}
                 </label>
                 <input id={`type-field-${id}`} className="field field-sm font-canvas" value={options.typeDiscriminator?.field ?? 'type'} onChange={(e) => set((o) => void (o.typeDiscriminator = { field: e.target.value, value: o.typeDiscriminator?.value ?? collection.name }))} />
               </div>
-              <div className="min-w-28 flex-1 space-y-1">
+              <div className="min-w-40 flex-1 space-y-1">
                 <label htmlFor={`type-value-${id}`} className="block text-muted">
                   {t('inspector.typeFieldValue')}
                 </label>

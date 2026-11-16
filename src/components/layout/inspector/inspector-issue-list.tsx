@@ -22,7 +22,7 @@ const InspectorIssueList = ({ issues }: { issues: Issue[] }) => {
         const content = (
           <>
             <Pill tone={tone[level]}>{t(label[level])}</Pill>
-            <span className="flex-1 leading-snug">{message}</span>
+            <span className="flex-1 font-normal leading-snug">{message}</span>
           </>
         );
         return (

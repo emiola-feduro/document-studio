@@ -18,7 +18,8 @@ import InspectorSection from './inspector-section';
 const InspectorRelationship = ({ relationship }: { relationship: Relationship }) => {
   const t = useT();
   const project = useProjectStore((s) => s.project)!;
-  const issues = useAdvisor().filter((i) => i.relationshipId === relationship.id);
+  // The recommendation box above already explains the embed or reference advice.
+  const issues = useAdvisor().filter((i) => i.relationshipId === relationship.id && i.code !== 'rec-kind');
   const [confirming, setConfirming] = useState(false);
   const [removeField, setRemoveField] = useState(true);
   const { id, kind, cardinality, storage, from, to } = relationship;
@@ -63,7 +64,7 @@ const InspectorRelationship = ({ relationship }: { relationship: Relationship })
           />
         </div>
         <div className="flex flex-wrap gap-3">
-          <div className="min-w-28 flex-1 space-y-1">
+          <div className="min-w-40 flex-1 space-y-1">
             <label htmlFor={`rel-card-${id}`} className="block font-medium">
               {t('inspector.cardinality')}
             </label>
@@ -73,7 +74,7 @@ const InspectorRelationship = ({ relationship }: { relationship: Relationship })
               <option value="N:M">{t('rel.manyToMany')}</option>
             </select>
           </div>
-          <div className="min-w-28 flex-1 space-y-1">
+          <div className="min-w-40 flex-1 space-y-1">
             <label htmlFor={`rel-storage-${id}`} className="block font-medium">
               {t('inspector.storage')}
             </label>

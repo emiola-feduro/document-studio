@@ -16,7 +16,7 @@ const SchemaViewFontSelect = () => {
       <label htmlFor="code-font" className="text-muted">
         {t('schema.font')}
       </label>
-      <select id="code-font" className="field field-sm w-36" value={codeFontId} onChange={(e) => setCodeFont(e.target.value)}>
+      <select id="code-font" className="field field-sm w-auto" value={codeFontId} onChange={(e) => setCodeFont(e.target.value)}>
         {ORDER.map((category) => (
           <optgroup key={category} label={t(`fontCategory.${category}` as MessageKey)}>
             {FONTS.filter((f) => f.category === category).map((font) => (

@@ -24,6 +24,7 @@ type MenuListProps = {
 
 /** Floating list of menu items with arrow key navigation. Positioning is up to the caller. */
 const MenuList = forwardRef<HTMLUListElement, MenuListProps>(({ items, style, onClose, label }, ref) => {
+  const hasChecks = items.some((item) => item.checked !== undefined);
   const onKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
     if (event.key === 'Escape' || event.key === 'Tab') {
       event.preventDefault();
@@ -67,7 +68,8 @@ const MenuList = forwardRef<HTMLUListElement, MenuListProps>(({ items, style, on
             className={`flex w-full items-center justify-between gap-6 px-3 py-2 text-left hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none disabled:opacity-50 ${danger ? 'text-danger' : ''}`}
           >
             <span className="flex items-center gap-2">
-              {checked !== undefined && (
+              {/* Every item keeps the check column when any item has one, so the labels line up. */}
+              {hasChecks && (
                 <span className="inline-flex w-4 justify-center" aria-hidden>
                   {checked && <Check size={15} />}
                 </span>
