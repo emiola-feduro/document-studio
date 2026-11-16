@@ -107,6 +107,8 @@ type Scan = {
   partial: string;
   /** Key of the pair being written. */
   key: string | null;
+  /** The cursor is in a key written without quotes. */
+  bare: boolean;
 };
 
 /** Inside an array the elements belong to the key that opened it ($or, $in). */
@@ -114,13 +116,15 @@ const arrayOwner = (stack: Frame[]) => (stack.at(-1)?.bracket === '[' ? stack.at
 
 /** Reads the JSON before the cursor far enough to know what can come next. */
 const scan = (text: string): Scan => {
-  const s: Scan = { stack: [], state: 'value', inString: false, stringIsKey: false, partial: '', key: null };
+  const s: Scan = { stack: [], state: 'value', inString: false, stringIsKey: false, partial: '', key: null, bare: false };
   let escape = false;
-  for (const ch of text) {
+  let quote = '"';
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
     if (s.inString) {
       if (escape) escape = false;
       else if (ch === '\\') escape = true;
-      else if (ch === '"') {
+      else if (ch === quote) {
         s.inString = false;
         if (s.stringIsKey) {
           s.key = s.partial;
@@ -131,8 +135,25 @@ const scan = (text: string): Scan => {
       if (!escape || ch === '\\') s.partial += ch;
       continue;
     }
-    if (ch === '"') {
+    // A key without quotes, as JavaScript allows: { estado: "pagado" }.
+    if (s.state === 'key' && /[A-Za-z_$]/.test(ch)) {
+      const word = /^[\w$.]*/.exec(text.slice(i))![0];
+      const rest = text.slice(i + word.length);
+      if (!rest.trim()) {
+        s.bare = true;
+        s.partial = word;
+        return s;
+      }
+      i += word.length - 1;
+      if (/^\s*:/.test(rest)) {
+        s.key = word;
+        s.state = 'colon';
+      } else s.state = 'after';
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
       s.inString = true;
+      quote = ch;
       s.stringIsKey = s.state === 'key';
       s.partial = '';
     } else if (ch === '{') {
@@ -149,8 +170,10 @@ const scan = (text: string): Scan => {
     else if (ch === ',') {
       s.state = s.stack.at(-1)?.bracket === '{' ? 'key' : 'value';
       s.key = arrayOwner(s.stack);
-    }
-    else if (!/\s/.test(ch)) s.state = 'after';
+    } else if (ch === '(' || ch === ')') {
+      // ObjectId("...") and ISODate("...") are values.
+      if (ch === ')') s.state = 'after';
+    } else if (!/\s/.test(ch)) s.state = 'after';
     if (!s.inString && s.state === 'key') s.key = null;
   }
   return s;
@@ -203,9 +226,9 @@ export const filterCompletions = (engine: EngineId, paths: QueryPath[], before: 
   const fieldOwner = owner && !owner.startsWith('$') ? owner : null;
 
   // Writing a key: field paths, or the operators of the field that owns this object.
-  if ((s.inString && s.stringIsKey) || s.state === 'key') {
-    const partial = s.inString ? s.partial : '';
-    const head = s.inString ? before.slice(0, before.length - partial.length - 1) : before.replace(/\s*$/, ' ');
+  if ((s.inString && s.stringIsKey) || s.state === 'key' || s.bare) {
+    const partial = s.inString || s.bare ? s.partial : '';
+    const head = s.bare ? before.slice(0, before.length - partial.length) : s.inString ? before.slice(0, before.length - partial.length - 1) : before.replace(/\s*$/, ' ');
     if (fieldOwner) {
       return operandsOf(fieldOwner)
         .filter((o) => o.op && matches(o.op, partial.replace(/^\$/, '$')))

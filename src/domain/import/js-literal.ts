@@ -12,7 +12,7 @@ export type JsValue =
   | { kind: 'number'; value: number }
   | { kind: 'bool'; value: boolean }
   | { kind: 'null' }
-  | { kind: 'regex'; source: string }
+  | { kind: 'regex'; source: string; flags: string }
   | { kind: 'ident'; name: string }
   | { kind: 'call'; callee: string; args: JsValue[] }
   | { kind: 'code'; text: string };
@@ -105,10 +105,10 @@ export class JsParser {
     if (ch === '[') return this.array();
     if (ch === '"' || ch === "'" || ch === '`') return { kind: 'string', value: this.readString() };
     if (ch === '/') {
-      const m = /^\/((?:\\.|[^/\\\n])+)\/[a-z]*/.exec(this.text.slice(this.pos));
+      const m = /^\/((?:\\.|[^/\\\n])+)\/([a-z]*)/.exec(this.text.slice(this.pos));
       if (m) {
         this.pos += m[0].length;
-        return { kind: 'regex', source: m[1] };
+        return { kind: 'regex', source: m[1], flags: m[2] };
       }
     }
     const num = /^-?\d+(?:\.\d+)?(?:e-?\d+)?/i.exec(this.text.slice(this.pos));

@@ -2,7 +2,7 @@ import useUiStore from '../../../stores/use-ui-store';
 import PanelsFloatingBar from '../../layout/panels-menu/panels-floating-bar';
 import DocCanvas from '../../ui/doc-canvas/doc-canvas';
 import DocumentsView from '../../ui/documents-view/documents-view';
-import QueryBuilder from '../../ui/query-builder/query-builder';
+import QueryView from '../../ui/query-builder/query-view';
 import VersionsView from '../../ui/versions-view/versions-view';
 import SchemaView from '../../ui/schema-view/schema-view';
 
@@ -18,7 +18,7 @@ const Workspace = () => {
       </div>
       {view === 'schema' && <SchemaView />}
       {view === 'documents' && <DocumentsView />}
-      {view === 'query' && <QueryBuilder />}
+      {view === 'query' && <QueryView />}
       {view === 'versions' && <VersionsView />}
       {view === 'diagram' && <PanelsFloatingBar />}
     </main>
