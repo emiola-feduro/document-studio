@@ -1,3 +1,4 @@
+import type { EngineId } from '../domain/types';
 import { create } from 'zustand';
 
 export type Selection = { kind: 'collection' | 'relationship'; id: string } | null;
@@ -6,7 +7,9 @@ export type CenterView = 'diagram' | 'schema' | 'documents' | 'query' | 'version
 export type ContextMenuState = { x: number; y: number; collectionId?: string; flowPosition?: { x: number; y: number } };
 export type Toast = { id: number; message: string; tone: 'info' | 'error' };
 export type FieldFocus = { collectionId: string; fieldId: string } | null;
-export type ImportTab = 'documents' | 'jsonSchema' | 'firestoreIndexes';
+export type ImportTab = 'auto' | 'documents' | 'jsonSchema' | 'mongoose' | 'prisma' | 'firestoreIndexes';
+/** Where an import goes, and what a new project starts with when it comes from the new project dialog. */
+export type ImportTarget = { destination: 'current' | 'new'; name?: string; engine?: EngineId; databaseName?: string };
 
 type UiState = {
   selection: Selection;
@@ -23,7 +26,7 @@ type UiState = {
   relationshipDialog: { open: boolean; fromId?: string; toId?: string; kind?: 'embed' | 'reference' };
   agentExport: { open: boolean; collectionId?: string };
   openApiExportOpen: boolean;
-  importDialog: { open: boolean; tab: ImportTab };
+  importDialog: { open: boolean; tab: ImportTab; target: ImportTarget };
   documentsCollectionId: string | null;
   showRelationshipLabels: boolean;
   /** Object and array fields folded in the diagram, by field id. */
@@ -47,7 +50,7 @@ type UiState = {
   openAgentExport: (collectionId?: string) => void;
   closeAgentExport: () => void;
   setOpenApiExportOpen: (open: boolean) => void;
-  openImport: (tab?: ImportTab) => void;
+  openImport: (tab?: ImportTab, target?: ImportTarget) => void;
   closeImport: () => void;
   showDocuments: (collectionId: string | null) => void;
   setDocumentsCollection: (id: string | null) => void;
@@ -74,7 +77,7 @@ const useUiStore = create<UiState>((set, get) => ({
   relationshipDialog: { open: false },
   agentExport: { open: false },
   openApiExportOpen: false,
-  importDialog: { open: false, tab: 'documents' },
+  importDialog: { open: false, tab: 'documents', target: { destination: 'current' } },
   documentsCollectionId: null,
   showRelationshipLabels: true,
   collapsedFields: {},
@@ -96,8 +99,8 @@ const useUiStore = create<UiState>((set, get) => ({
   openAgentExport: (collectionId) => set({ agentExport: { open: true, collectionId }, contextMenu: null }),
   closeAgentExport: () => set({ agentExport: { open: false } }),
   setOpenApiExportOpen: (openApiExportOpen) => set({ openApiExportOpen }),
-  openImport: (tab = 'documents') => set({ importDialog: { open: true, tab } }),
-  closeImport: () => set({ importDialog: { open: false, tab: get().importDialog.tab } }),
+  openImport: (tab = 'documents', target = { destination: 'current' }) => set({ importDialog: { open: true, tab, target } }),
+  closeImport: () => set({ importDialog: { ...get().importDialog, open: false } }),
   showDocuments: (documentsCollectionId) => set({ documentsCollectionId, view: 'documents', focusMode: false, contextMenu: null }),
   setDocumentsCollection: (documentsCollectionId) => set({ documentsCollectionId }),
   toggleRelationshipLabels: () => set({ showRelationshipLabels: !get().showRelationshipLabels }),

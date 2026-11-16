@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { importFirestoreIndexes, importJsonSchema, parseDocumentsText, planImport, type ImportedCollection } from '../../domain/infer';
-import { t } from '../../i18n';
+import { ENGINE_LIST } from '../../domain/engines';
+import { detectFormat, detectNamesLocale, readSource, type ImportFormat, type SchemaImport } from '../../domain/import';
+import { importFirestoreIndexes } from '../../domain/infer';
+import { createProject } from '../../domain/model';
+import type { EngineId } from '../../domain/types';
+import { getLocale, t, type Locale } from '../../i18n';
 import { addCollections } from '../../lib/actions';
 import { layoutProject } from '../../lib/layout';
 import useProjectStore from '../../stores/use-project-store';
@@ -10,34 +14,66 @@ export type ImportSource = { name: string; text: string };
 
 const baseName = (file: string) => file.replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_-]+/g, '_') || 'documents';
 
-/** State of the import dialog: pasted or uploaded documents, a $jsonSchema or a firestore.indexes.json. */
+/** Formats that bring their own collection names; a pasted document list or schema needs one. */
+const NAMED: ImportFormat[] = ['mongoose', 'prisma', 'firestoreIndexes'];
+
+/**
+ * State of the import dialog: what is pasted or uploaded, its format (chosen or detected), a live
+ * preview of what will be created and what will not, the names language, and where it goes (the
+ * open project, or a new one).
+ */
 const useImportForm = () => {
   const project = useProjectStore((s) => s.project);
-  const { open, tab } = useUiStore((s) => s.importDialog);
+  const { open, tab, target } = useUiStore((s) => s.importDialog);
+  const openImport = useUiStore((s) => s.openImport);
   const close = useUiStore((s) => s.closeImport);
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [files, setFiles] = useState<ImportSource[]>([]);
+  const [destination, setDestination] = useState<'current' | 'new'>('current');
+  const [projectName, setProjectName] = useState('');
+  const [engine, setEngine] = useState<EngineId>('mongodb');
+  const [namesLocale, setNamesLocale] = useState<Locale | 'auto'>('auto');
 
   useEffect(() => {
     if (!open) return;
     setName('');
     setText('');
     setFiles([]);
-  }, [open, tab]);
+    setDestination(target.destination);
+    setProjectName(target.name ?? '');
+    setEngine(target.engine ?? project?.engine ?? 'mongodb');
+    setNamesLocale('auto');
+    // Only a new opening resets the form; switching the format keeps what was pasted.
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sources = useMemo((): ImportSource[] => (files.length ? files : text.trim() ? [{ name: name.trim() || (tab === 'documents' ? 'documents' : 'collection'), text }] : []), [files, text, name, tab]);
+  const joined = files.length ? files.map((f) => f.text).join('\n') : text;
+  const detected = useMemo(() => (tab === 'auto' ? detectFormat(joined) : undefined), [tab, joined]);
+  const format: ImportFormat | undefined = tab === 'auto' ? detected : tab;
+  const fallbackName = name.trim() || (format === 'documents' ? 'documents' : 'collection');
+  const sources = useMemo((): ImportSource[] => (files.length ? files : text.trim() ? [{ name: fallbackName, text }] : []), [files, text, fallbackName]);
+  // Indexes only make sense on the collections of the open project.
+  const effectiveDestination = format === 'firestoreIndexes' ? 'current' : destination;
 
-  const preview = useMemo(() => {
-    if (!project || tab !== 'documents' || sources.length === 0) return { plan: undefined, error: undefined };
+  /** The project the import is read against: the open one, or an empty one with the chosen engine. */
+  const base = useMemo(() => (effectiveDestination === 'new' || !project ? createProject(projectName || 'import', engine) : project), [effectiveDestination, project, projectName, engine]);
+
+  const preview = useMemo((): { result?: SchemaImport; error?: string; indexes?: number } => {
+    if (!open || sources.length === 0) return {};
+    if (!format) return { error: t('import.notDetected') };
     try {
-      const inputs: ImportedCollection[] = sources.map((s) => ({ name: s.name, docs: parseDocumentsText(s.text) }));
-      if (inputs.every((i) => i.docs.length === 0)) return { plan: undefined, error: t('infer.noDocuments') };
-      return { plan: planImport(project, inputs), error: undefined };
+      if (format === 'firestoreIndexes') {
+        const copy = structuredClone(base);
+        return { indexes: sources.reduce((n, s) => n + importFirestoreIndexes(copy, s.text), 0) };
+      }
+      return { result: readSource(base, format, sources) };
     } catch (e) {
-      return { plan: undefined, error: e instanceof Error ? e.message : String(e) };
+      return { error: e instanceof Error ? e.message : String(e) };
     }
-  }, [project, tab, sources]);
+  }, [open, sources, format, base]);
+
+  const detectedLocale = useMemo(() => (preview.result ? detectNamesLocale(preview.result.collections, preview.result.relationships) : undefined), [preview.result]);
+  const chosenLocale: Locale = namesLocale === 'auto' ? (detectedLocale ?? project?.namesLocale ?? getLocale()) : namesLocale;
 
   const readFiles = async (list: FileList | null) => {
     if (!list) return;
@@ -45,44 +81,82 @@ const useImportForm = () => {
     setFiles(read);
   };
 
-  const submit = () => {
-    if (!project) return;
-    const { notify, select } = useUiStore.getState();
+  const canSubmit = Boolean(project && sources.length && format && !preview.error && (preview.result?.collections.length || preview.indexes) && (effectiveDestination === 'current' || projectName.trim()));
+
+  const submit = async () => {
+    if (!project || !canSubmit || !format) return;
+    const { notify, select, setView } = useUiStore.getState();
     try {
-      if (tab === 'documents') {
-        const plan = preview.plan;
-        if (!plan) return;
-        const documents = Object.fromEntries(plan.collections.map((c) => [c.collection.id, c.documents]));
-        const collections = plan.collections.map((c) => c.collection);
-        // Lay out the new collections next to each other below the current diagram.
-        const top = Math.max(0, ...project.collections.map((c) => c.position.y + 320));
-        const temp = { ...project, collections, relationships: plan.relationships };
-        layoutProject(temp);
-        for (const c of collections) c.position = { x: c.position.x, y: c.position.y + top };
-        addCollections(collections, plan.relationships, documents);
-        notify(t('infer.imported', { count: collections.length, docs: plan.collections.reduce((n, c) => n + c.documents.length, 0) }));
-        for (const w of plan.warnings.slice(0, 3)) notify(w, 'error');
-        if (collections[0]) select({ kind: 'collection', id: collections[0].id });
-      } else if (tab === 'jsonSchema') {
-        const collections = sources.flatMap((s) => importJsonSchema(s.text, project.engine, s.name));
-        const top = Math.max(0, ...project.collections.map((c) => c.position.y + 320));
-        for (const c of collections) c.position = { x: c.position.x, y: c.position.y + top };
-        addCollections(collections, [], {});
-        notify(t('infer.schemaImported', { count: collections.length }));
-      } else {
+      if (format === 'firestoreIndexes') {
         let added = 0;
         useProjectStore.getState().mutate((draft) => {
           for (const s of sources) added += importFirestoreIndexes(draft, s.text);
         });
         notify(t('infer.indexesImported', { count: added }), added ? 'info' : 'error');
+        close();
+        return;
       }
-      close();
+      const result = preview.result!;
+      if (effectiveDestination === 'new') {
+        const created = createProject(projectName.trim(), engine, target.databaseName);
+        created.namesLocale = chosenLocale;
+        created.collections = result.collections;
+        created.relationships = result.relationships;
+        created.documents = result.documents;
+        layoutProject(created);
+        close();
+        await useProjectStore.getState().importProject(created);
+        setView('diagram');
+        notify(t('import.created', { name: created.name, count: created.collections.length }));
+      } else {
+        // The new collections are laid out among themselves and placed below the current diagram.
+        const top = Math.max(0, ...project.collections.map((c) => c.position.y + 320));
+        layoutProject({ ...project, collections: result.collections, relationships: result.relationships });
+        for (const c of result.collections) c.position = { x: c.position.x, y: c.position.y + top };
+        addCollections(result.collections, result.relationships, result.documents);
+        const docs = Object.values(result.documents).reduce((n, d) => n + d.length, 0);
+        notify(docs ? t('infer.imported', { count: result.collections.length, docs }) : t('infer.schemaImported', { count: result.collections.length }));
+        close();
+        if (result.collections[0]) select({ kind: 'collection', id: result.collections[0].id });
+      }
+      for (const w of result.warnings.slice(0, 3)) notify(w, 'error');
     } catch (e) {
       notify(e instanceof Error ? e.message : t('export.importFailed'), 'error');
     }
   };
 
-  return { open, tab, close, name, setName, text, setText, files, readFiles, clearFiles: () => setFiles([]), preview, canSubmit: sources.length > 0 && (tab !== 'documents' || Boolean(preview.plan)), submit };
+  return {
+    open,
+    tab,
+    setTab: (v: typeof tab) => openImport(v, { ...target, destination }),
+    close,
+    name,
+    setName,
+    needsName: !files.length && (format === undefined ? false : !NAMED.includes(format)),
+    text,
+    setText,
+    files,
+    readFiles,
+    clearFiles: () => setFiles([]),
+    format,
+    detected,
+    destination: effectiveDestination,
+    setDestination,
+    canChooseDestination: format !== 'firestoreIndexes',
+    projectName,
+    setProjectName,
+    engine,
+    setEngine,
+    engines: ENGINE_LIST,
+    namesLocale,
+    setNamesLocale,
+    detectedLocale,
+    preview,
+    canSubmit,
+    submit,
+  };
 };
+
+export type ImportFormState = ReturnType<typeof useImportForm>;
 
 export default useImportForm;

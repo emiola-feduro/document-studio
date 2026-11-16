@@ -57,7 +57,7 @@ const TopBarExportMenu = () => {
         },
         { label: t('export.importJson'), onSelect: importProject },
         { label: t('export.importDocuments'), onSelect: () => ui().openImport('documents') },
-        { label: t('export.importSchema'), onSelect: () => ui().openImport('jsonSchema') },
+        { label: t('export.importSchema'), onSelect: () => ui().openImport('auto') },
         ...(engine === 'firestore' ? [{ label: t('export.importIndexes'), onSelect: () => ui().openImport('firestoreIndexes') }] : []),
       ]}
     />

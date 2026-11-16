@@ -14,6 +14,11 @@ const NewProjectDialog = () => {
   const setOpen = useUiStore((s) => s.setNewProjectOpen);
   const { fields, random, busy, submit } = useNewProjectForm(() => setOpen(false));
   const { name, setName, engine, setEngine, databaseName, setDatabaseName, startWith, setStartWith } = fields;
+  // Importing starts from the name, engine and database typed here.
+  const importInstead = () => {
+    setOpen(false);
+    useUiStore.getState().openImport('auto', { destination: 'new', name: name.trim(), engine, databaseName: databaseName.trim() || undefined });
+  };
 
   return (
     <Modal title={t('newProject.title')} open={open} onClose={() => setOpen(false)} width="max-w-lg">
@@ -57,6 +62,9 @@ const NewProjectDialog = () => {
           />
         </div>
         {startWith === 'random' && <NewProjectDialogRandomFields random={random} />}
+        <Button variant="ghost" size="sm" onClick={importInstead}>
+          {t('import.fromExisting')}
+        </Button>
         <div className="flex justify-end gap-2 pt-2">
           <Button onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
           <Button type="submit" variant="primary" disabled={!name.trim() || busy}>
