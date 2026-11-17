@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { creationOrder } from '../../../domain/model';
 import { errorCount } from '../../../domain/documents';
 import useDocumentResults from '../../../hooks/data/use-document-results';
 import useT from '../../../hooks/ui/use-t';
@@ -27,7 +28,9 @@ const DocumentsView = () => {
   const [count, setCount] = useState(20);
   const [maxArray, setMaxArray] = useState(5);
   const [clearing, setClearing] = useState(false);
-  const collection = project?.collections.find((c) => c.id === selectedId) ?? project?.collections[0];
+  // Collections in the order their documents have to be created: referenced ones first.
+  const ordered = useMemo(() => (project ? creationOrder(project) : []), [project]);
+  const collection = project?.collections.find((c) => c.id === selectedId) ?? ordered[0];
   const results = useDocumentResults(collection?.id ?? null);
   if (!project) return null;
 
@@ -61,7 +64,7 @@ const DocumentsView = () => {
             {t('docs.collection')}
           </label>
           <select id="docs-collection" className="field field-sm w-auto font-canvas" value={collection.id} onChange={(e) => setCollection(e.target.value)}>
-            {project.collections.map((c) => (
+            {ordered.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name} ({project.documents?.[c.id]?.length ?? 0})
               </option>

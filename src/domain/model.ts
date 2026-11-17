@@ -1,3 +1,4 @@
+import { walkFields } from './paths';
 import { getLocale } from '../i18n';
 import { ENGINES } from './engines';
 import type { Collection, EngineId, Field, Project } from './types';
@@ -94,27 +95,44 @@ export const docIdParam = (collection: Collection) => {
   return `${one}Id`;
 };
 
-/** Collections in an order where every referenced collection comes before the ones that point at it. */
-export const topologicalOrder = (project: Project): Collection[] => {
+/**
+ * Order in which documents have to be created: first the collections that reference no other, then
+ * the ones that only reference those, and so on by levels, keeping the model order inside a level.
+ * References (relationships and reference fields) and the parent of a subcollection count; embeds do
+ * not, as they live inside the document. A reference to itself or a cycle never blocks the order: the
+ * first collection left in model order goes next.
+ */
+export const creationOrder = (project: Project): Collection[] => {
+  const ids = new Set(project.collections.map((c) => c.id));
   const deps = new Map<string, Set<string>>();
-  for (const c of project.collections) deps.set(c.id, new Set(c.parentId ? [c.parentId] : []));
-  for (const r of project.relationships) {
-    if (r.kind === 'reference' && r.from.collectionId !== r.to.collectionId) deps.get(r.from.collectionId)?.add(r.to.collectionId);
+  for (const c of project.collections) {
+    const own = new Set<string>(c.parentId ? [c.parentId] : []);
+    for (const { field } of walkFields(c.fields)) {
+      const target = (field.type === 'array' ? field.items : field)?.reference?.collectionId;
+      if (target) own.add(target);
+    }
+    deps.set(c.id, own);
+  }
+  for (const r of project.relationships) if (r.kind === 'reference') deps.get(r.from.collectionId)?.add(r.to.collectionId);
+  for (const [id, set] of deps) {
+    set.delete(id);
+    for (const d of [...set]) if (!ids.has(d)) set.delete(d);
   }
   const out: Collection[] = [];
-  const done = new Set<string>();
-  const visiting = new Set<string>();
-  const visit = (c: Collection) => {
-    if (done.has(c.id) || visiting.has(c.id)) return;
-    visiting.add(c.id);
-    for (const dep of deps.get(c.id) ?? []) {
-      const d = project.collections.find((x) => x.id === dep);
-      if (d) visit(d);
+  const placed = new Set<string>();
+  let rest = [...project.collections];
+  while (rest.length) {
+    const level = rest.filter((c) => [...deps.get(c.id)!].every((d) => placed.has(d)));
+    // A cycle: the first collection left goes next and the order goes on from there.
+    const next = level.length ? level : [rest[0]];
+    for (const c of next) {
+      out.push(c);
+      placed.add(c.id);
     }
-    visiting.delete(c.id);
-    done.add(c.id);
-    out.push(c);
-  };
-  project.collections.forEach(visit);
+    rest = rest.filter((c) => !placed.has(c.id));
+  }
   return out;
 };
+
+/** Kept for the callers that generate documents. */
+export const topologicalOrder = creationOrder;
