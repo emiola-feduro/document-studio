@@ -975,6 +975,15 @@ export const es = {
   'query.replaceEditorTitle': "Reemplazar el texto del editor",
   'query.replaceEditorMessage': "El editor ya tiene una consulta. Se reemplaza por la generada.",
   'query.replaceEditorConfirm': "Reemplazar",
+  'qe.extra.mangoIndex': "Índice Mango para ordenar (POST /{database}/_index)",
+  'qe.extra.view': "Vista map/reduce para agrupar (documento de diseño)",
+  'qe.extra.viewCall': "Llamada a la vista",
+  'qe.extra.secondQuery': "Opción 1: segunda consulta con los documentos de {collection}",
+  'qe.extra.relatedView': "Opción 2: vista que emite el documento relacionado",
+  'qe.extra.twoStepJoin': "Lectura en dos pasos",
+  'qe.extra.groupInCode': "Agrupar en el código",
+  'qe.firestoreNotEquals': "{path} con != o not-in deja fuera los documentos que no tienen el campo, y Firestore pide ordenar primero por {path}.",
+  'queryEditor.extras': "Lo que el motor necesita además",
 } as const;
 
 export type Messages = { [K in keyof typeof es]: string };

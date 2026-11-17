@@ -972,4 +972,13 @@ export const en: Messages = {
   'query.replaceEditorTitle': "Replace the editor text",
   'query.replaceEditorMessage': "The editor already has a query. It is replaced by the generated one.",
   'query.replaceEditorConfirm': "Replace",
+  'qe.extra.mangoIndex': "Mango index to sort (POST /{database}/_index)",
+  'qe.extra.view': "Map/reduce view to group (design document)",
+  'qe.extra.viewCall': "Call to the view",
+  'qe.extra.secondQuery': "Option 1: second query with the {collection} documents",
+  'qe.extra.relatedView': "Option 2: view that emits the related document",
+  'qe.extra.twoStepJoin': "Read in two steps",
+  'qe.extra.groupInCode': "Group in code",
+  'qe.firestoreNotEquals': "{path} with != or not-in leaves out the documents without the field, and Firestore needs sorting by {path} first.",
+  'queryEditor.extras': "What the engine also needs",
 };

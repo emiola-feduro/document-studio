@@ -3,6 +3,8 @@ import useQueryEditor from '../../../hooks/data/use-query-editor';
 import useT from '../../../hooks/ui/use-t';
 import type { EditorSide } from '../../../stores/use-query-store';
 import useUiStore from '../../../stores/use-ui-store';
+import { addIndexWithKeys } from '../../../lib/actions';
+import SchemaViewCode from '../schema-view/schema-view-code';
 import PanelsRestoreButton from '../../layout/panels-menu/panels-restore-button';
 import Button from '../button/button';
 import CodeEditor from '../code-editor/code-editor';
@@ -16,7 +18,7 @@ const NATIVE_TITLE = { mongodb: 'MongoDB (mongosh)', couchdb: 'CouchDB (Mango _f
 const QueryEditor = () => {
   const t = useT();
   const editor = useQueryEditor();
-  const { project, side, text, setText, other, diagnostics, losses, switchSide, nativeLanguage, complete, hoverFor, signature } = editor;
+  const { project, side, text, setText, other, diagnostics, losses, extras, missingIndex, switchSide, nativeLanguage, complete, hoverFor, signature } = editor;
   const [confirming, setConfirming] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   if (!project) return null;
@@ -100,6 +102,29 @@ const QueryEditor = () => {
         {panel('sql')}
         {panel('native')}
       </div>
+      {(extras.length > 0 || missingIndex) && (
+        <section className="max-h-64 shrink-0 space-y-2 overflow-y-auto border-t border-line px-4 py-2" aria-label={t('queryEditor.extras')}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">{t('queryEditor.extras')}</h3>
+            {missingIndex && (
+              <Button size="sm" onClick={() => addIndexWithKeys(missingIndex.collectionId, missingIndex.keys)}>
+                {t('query.addIndex')}
+              </Button>
+            )}
+          </div>
+          {extras.map((extra) => (
+            <div key={extra.label + extra.code} className="rounded-theme border-(length:--bw) border-line">
+              <div className="flex items-center justify-between gap-2 border-b border-line px-3 py-1">
+                <span className="font-medium">{extra.label}</span>
+                <Button size="sm" variant="ghost" onClick={() => void copy(extra.code)} aria-label={t('queryEditor.copyLabel', { name: extra.label })}>
+                  {t('common.copy')}
+                </Button>
+              </div>
+              <SchemaViewCode code={extra.code} language={extra.language} />
+            </div>
+          ))}
+        </section>
+      )}
       <QueryEditorProblems diagnostics={diagnostics} text={text} areaRef={areaRef} onFix={editor.applyFix} />
       <ConfirmDialog
         open={confirming}

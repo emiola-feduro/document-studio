@@ -6,7 +6,7 @@ import { parseNative } from '../../domain/query/native-parse';
 import { bindQuery } from '../../domain/query/resolve';
 import { sqlCompletions } from '../../domain/query/sql-completion';
 import { parseSql } from '../../domain/query/sql-parse';
-import { NATIVE_LANGUAGE, toNative } from '../../domain/query/to-native';
+import { NATIVE_LANGUAGE, toNative, type NativeExtra, type NativeResult } from '../../domain/query/to-native';
 import { toSql } from '../../domain/query/to-sql';
 import type { MessageKey } from '../../i18n';
 import useProjectStore from '../../stores/use-project-store';
@@ -40,20 +40,23 @@ const useQueryEditor = () => {
   const setText = (value: string) => projectId && setEditor(projectId, { side, text: value });
 
   const result = useMemo(() => {
-    if (!project) return { other: '', diagnostics: [] as Diagnostic[], losses: [] as string[], ir: undefined as QueryIR | undefined };
+    const none = { extras: [] as NativeExtra[], missingIndex: undefined as NativeResult['missingIndex'] };
+    if (!project) return { other: '', diagnostics: [] as Diagnostic[], losses: [] as string[], ir: undefined as QueryIR | undefined, ...none };
     if (side === 'sql') {
       const parsed = parseSql(text);
-      if (!parsed.ir) return { other: '', diagnostics: parsed.diagnostics, losses: [], ir: undefined };
+      if (!parsed.ir) return { other: '', diagnostics: parsed.diagnostics, losses: [], ir: undefined, ...none };
       const native = toNative(project, parsed.ir);
       const losses = native.diagnostics.filter((d) => d.severity === 'warning').map((d) => d.message);
-      return { other: native.text, diagnostics: native.diagnostics, losses, ir: parsed.ir };
+      return { other: native.text, diagnostics: native.diagnostics, losses, ir: parsed.ir, extras: native.extras ?? [], missingIndex: native.missingIndex };
     }
     const parsed = parseNative(project, text);
-    if (!parsed.ir) return { other: '', diagnostics: parsed.diagnostics, losses: [], ir: undefined };
+    if (!parsed.ir) return { other: '', diagnostics: parsed.diagnostics, losses: [], ir: undefined, ...none };
     const bound = bindQuery(project, parsed.ir);
     const notes = (parsed.ir.untranslated ?? []).map((part) => t('qe.untranslated', { part }));
     const diagnostics = [...parsed.diagnostics, ...bound.diagnostics, ...notes.map((message) => ({ severity: 'warning' as const, message }))].map((d) => locate(text, d));
-    return { other: toSql(parsed.ir), diagnostics, losses: notes, ir: parsed.ir };
+    // The engine's extras (indexes, views) come from the query as the native text says it.
+    const native = toNative(project, parsed.ir);
+    return { other: toSql(parsed.ir), diagnostics, losses: notes, ir: parsed.ir, extras: native.extras ?? [], missingIndex: native.missingIndex };
   }, [project, side, text, t]);
 
   const sample = t('query.sample');
@@ -97,6 +100,8 @@ const useQueryEditor = () => {
     other: result.other,
     diagnostics: result.diagnostics,
     losses: result.losses,
+    extras: result.extras,
+    missingIndex: result.missingIndex,
     switchSide,
     applyFix,
     nativeLanguage: project ? NATIVE_LANGUAGE[project.engine] : 'js',

@@ -12,7 +12,21 @@ import { bindQuery, resolveRef, type Scope } from './resolve';
  */
 
 export type NativeLanguage = 'js' | 'json' | 'ts';
-export type NativeResult = { text: string; language: NativeLanguage; diagnostics: Diagnostic[] };
+/** Code that helps where the engine needs more than the query: an index, a view, a second read. */
+export type NativeExtra = { label: string; code: string; language: 'js' | 'json' | 'ts' | 'sh' };
+
+export type NativeResult = {
+  text: string;
+  language: NativeLanguage;
+  diagnostics: Diagnostic[];
+  extras?: NativeExtra[];
+  /** Firestore composite index the query needs and the model does not have. */
+  missingIndex?: { collectionId: string; keys: { path: string; order: 1 | -1 }[] };
+};
+
+type Out = { extras: NativeExtra[]; missingIndex?: NativeResult['missingIndex'] };
+
+const ident = (s: string) => s.replace(/\W/g, '_');
 
 export const NATIVE_LANGUAGE: Record<EngineId, NativeLanguage> = { mongodb: 'js', couchdb: 'json', firestore: 'ts' };
 
@@ -217,11 +231,50 @@ const toMongo = (project: Project, ir: QueryIR, scopes: Scope[], diagnostics: Di
 
 const mangoValue = (v: Value): unknown => (v.kind === 'null' ? null : v.value);
 
-const toCouch = (ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[]): string => {
+const toCouch = (ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[], out: Out, database: string): string => {
   const root = scopes[0].collection;
   const ctx: Ctx = { scopes, project: undefined as never, diagnostics, base: true };
-  for (const j of ir.joins) warn(diagnostics, t('qe.couchJoin', { collection: j.collection }), j.pos);
-  if (ir.groupBy.length || ir.select.some((s) => s.kind === 'field' && s.ref.agg)) warn(diagnostics, t('qe.couchGroup'));
+  const typeOf = discriminator(root);
+  for (const scope of scopes.slice(1)) {
+    const j = scope.join!;
+    warn(diagnostics, t('qe.couchJoin', { collection: j.collection }), j.pos);
+    // The reference read from the base documents, and two ways to get the related ones.
+    const local = resolveRef(scopes, j.on.left)?.scope === scope ? j.on.right : j.on.left;
+    const other = discriminator(scope.collection);
+    out.extras.push({
+      label: t('qe.extra.secondQuery', { collection: scope.collection.name }),
+      language: 'json',
+      code: JSON.stringify({ selector: { [other.field]: other.value, _id: { $in: [`<${local.path}>`] } } }, null, 2),
+    });
+    const view = `with_${ident(scope.name)}`;
+    out.extras.push({
+      label: t('qe.extra.relatedView'),
+      language: 'json',
+      code: JSON.stringify(
+        { _id: `_design/${root.name}`, views: { [view]: { map: `function (doc) { if (doc.${typeOf.field} === ${JSON.stringify(typeOf.value)} && doc.${local.path}) emit(doc._id, { _id: doc.${local.path} }); }` } } },
+        null,
+        2,
+      ),
+    });
+    out.extras.push({ label: t('qe.extra.viewCall'), language: 'sh', code: `GET /${database}/_design/${root.name}/_view/${view}?include_docs=true` });
+  }
+  const aggs = ir.select.filter((s) => s.kind === 'field' && s.ref.agg);
+  if (ir.groupBy.length || aggs.length) {
+    warn(diagnostics, t('qe.couchGroup'));
+    // A map/reduce view: the group keys as the key, 1 or the summed field as the value.
+    const keys = ir.groupBy.map((g) => `doc.${g.path}`);
+    const sum = aggs.find((s) => s.kind === 'field' && s.ref.agg === 'sum');
+    const value = sum?.kind === 'field' ? `doc.${sum.ref.path}` : '1';
+    const reduce = sum ? '_sum' : '_count';
+    const key = keys.length === 0 ? 'null' : keys.length === 1 ? keys[0] : `[${keys.join(', ')}]`;
+    const view = `by_${ir.groupBy.map((g) => ident(g.path)).join('_') || 'all'}`;
+    out.extras.push({
+      label: t('qe.extra.view'),
+      language: 'json',
+      code: JSON.stringify({ _id: `_design/${root.name}`, views: { [view]: { map: `function (doc) { if (doc.${typeOf.field} === ${JSON.stringify(typeOf.value)}) emit(${key}, ${value}); }`, reduce } } }, null, 2),
+    });
+    out.extras.push({ label: t('qe.extra.viewCall'), language: 'sh', code: `GET /${database}/_design/${root.name}/_view/${view}?group=true` });
+  }
   if (ir.distinct) warn(diagnostics, t('qe.noDistinct', { engine: 'CouchDB' }));
   const { field: typeField, value: typeValue } = discriminator(root);
   const filter = ir.where ? condToFilter(ir.where, (r) => mongoPath(ctx, r), mangoValue, (p, i) => ({ $regex: i ? `(?i)${p}` : p })) : {};
@@ -233,6 +286,8 @@ const toCouch = (ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[]): strin
   if (ir.orderBy.length) {
     body.sort = ir.orderBy.map((o) => ({ [o.ref.path]: o.desc ? 'desc' : 'asc' }));
     warn(diagnostics, t('qe.mangoSortIndex', { fields: ir.orderBy.map((o) => o.ref.path).join(', ') }));
+    const fields = [typeField, ...ir.orderBy.map((o) => o.ref.path)];
+    out.extras.push({ label: t('qe.extra.mangoIndex', { database }), language: 'json', code: JSON.stringify({ index: { fields }, name: fields.map(ident).join('-'), type: 'json' }, null, 2) });
   }
   if (ir.limit) body.limit = ir.limit;
   if (ir.offset) body.skip = ir.offset;
@@ -243,7 +298,7 @@ const toCouch = (ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[]): strin
 
 const FS_OPS: Record<string, string> = { '=': '==', '!=': '!=', '<': '<', '<=': '<=', '>': '>', '>=': '>=' };
 
-const toFirestore = (project: Project, ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[]): string => {
+const toFirestore = (project: Project, ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[], out: Out): string => {
   const root = scopes[0].collection;
   for (const j of ir.joins) warn(diagnostics, t('qe.firestoreJoin', { collection: j.collection }), j.pos);
   if (ir.groupBy.length) warn(diagnostics, t('qe.firestoreGroup'));
@@ -308,6 +363,12 @@ const toFirestore = (project: Project, ir: QueryIR, scopes: Scope[], diagnostics
   const constraints = ir.where ? render(ir.where, '  ') : [];
   const negatives = constraints.filter((c) => /"(!=|not-in)"/.test(c)).length;
   if (negatives > 1) warn(diagnostics, t('qe.firestoreOneNegative'));
+  // != and not-in change the meaning: documents without the field are left out.
+  for (const c of flat(ir.where)) {
+    const negative = (c.op === 'cmp' && c.cmp === '!=') || (c.op === 'in' && c.negate) || (c.op === 'null' && c.negate);
+    if (negative) diagnostics.push({ severity: 'info', message: t('qe.firestoreNotEquals', { path: c.field.path }), pos: c.field.pos });
+  }
+  firestoreIndex(ir, scopes, diagnostics, out);
   for (const o of ir.orderBy) constraints.push(`orderBy(${JSON.stringify(o.ref.path)}${o.desc ? ', "desc"' : ''})`);
   if (ir.limit) constraints.push(`limit(${ir.limit})`);
   const source = root.kind === 'subcollection' ? `collectionGroup(db, ${JSON.stringify(root.name)})` : `collection(db, ${JSON.stringify(root.name)})`;
@@ -326,7 +387,64 @@ const toFirestore = (project: Project, ir: QueryIR, scopes: Scope[], diagnostics
     return `getAggregateFromServer(${q.replace(/\n/g, '\n  ')}, { ${spec.join(', ')} })`;
   }
   if (ir.select.some((s) => s.kind === 'field')) warn(diagnostics, t('query.firestoreProjection'));
+  if (scopes.length > 1) {
+    // Firestore has no joins: read the base documents, then the referenced ones.
+    const reads = scopes.slice(1).map((scope) => {
+      const j = scope.join!;
+      const local = resolveRef(scopes, j.on.left)?.scope === scope ? j.on.right : j.on.left;
+      const holder = resolveRef(scopes, local)?.field;
+      const ref = holder?.type === 'reference' ? `d.data().${local.path}` : `doc(db, ${JSON.stringify(scope.collection.name)}, d.data().${local.path})`;
+      return `const ${ident(scope.name)} = await Promise.all(snapshot.docs.map((d) => getDoc(${ref})));`;
+    });
+    out.extras.push({ label: t('qe.extra.twoStepJoin'), language: 'ts', code: [`const snapshot = await getDocs(${q.replace(/\n/g, '\n  ')});`, ...reads].join('\n') });
+  }
+  if (ir.groupBy.length) {
+    const key = ir.groupBy.length === 1 ? `d.data().${ir.groupBy[0].path}` : `JSON.stringify([${ir.groupBy.map((g) => `d.data().${g.path}`).join(', ')}])`;
+    const sums = aggs.flatMap((s) => (s.kind === 'field' && s.ref.agg !== 'count' && s.ref.path !== '*' ? [s.ref.path] : []));
+    out.extras.push({
+      label: t('qe.extra.groupInCode'),
+      language: 'ts',
+      code: [
+        `const snapshot = await getDocs(${q.replace(/\n/g, '\n  ')});`,
+        'const groups = new Map();',
+        'for (const d of snapshot.docs) {',
+        `  const key = ${key};`,
+        `  const group = groups.get(key) ?? { count: 0${sums.map((p) => `, ${ident(p)}: 0`).join('')} };`,
+        '  group.count += 1;',
+        ...sums.map((p) => `  group.${ident(p)} += d.data().${p} ?? 0;`),
+        '  groups.set(key, group);',
+        '}',
+      ].join('\n'),
+    });
+  }
   return q;
+};
+
+type Leaf = Exclude<Cond, { op: 'and' } | { op: 'or' } | { op: 'not' }>;
+
+const flat = (c: Cond | undefined): Leaf[] => (!c ? [] : c.op === 'and' || c.op === 'or' ? c.items.flatMap(flat) : c.op === 'not' ? flat(c.item) : [c]);
+
+/** The composite index a Firestore query needs: equality filters, then the range or array one, then the sort. */
+const firestoreIndex = (ir: QueryIR, scopes: Scope[], diagnostics: Diagnostic[], out: Out) => {
+  const root = scopes[0].collection;
+  const conds = flat(ir.where);
+  const equality = conds.filter((c) => (c.op === 'cmp' && c.cmp === '=') || (c.op === 'in' && !c.negate) || (c.op === 'null' && !c.negate)).map((c) => c.field.path);
+  const ranges = conds.filter((c) => !equality.includes(c.field.path) && c.op !== 'like' && c.op !== 'regex').map((c) => c.field.path);
+  const keys: { path: string; order: 1 | -1 }[] = [];
+  for (const p of [...equality, ...ranges]) if (!keys.some((k) => k.path === p)) keys.push({ path: p, order: 1 });
+  for (const o of ir.orderBy) {
+    const found = keys.find((k) => k.path === o.ref.path);
+    if (found) found.order = o.desc ? -1 : 1;
+    else keys.push({ path: o.ref.path, order: o.desc ? -1 : 1 });
+  }
+  const needed = keys.length > 1 && (ranges.length > 0 || ir.orderBy.length > 0 || ir.where?.op === 'or');
+  if (!needed) return;
+  const has = root.indexes.some((i) => i.keys.length === keys.length && i.keys.every((k, n) => k.path.replace(/\[\]/g, '') === keys[n].path && k.order === keys[n].order));
+  if (has) diagnostics.push({ severity: 'info', message: t('query.indexPresent') });
+  else {
+    warn(diagnostics, t('query.indexNeeded', { fields: keys.map((k) => `${k.path} ${k.order === -1 ? 'desc' : 'asc'}`).join(', ') }));
+    out.missingIndex = { collectionId: root.id, keys };
+  }
 };
 
 /** The query in the project engine's language, with what does not translate as warnings. */
@@ -335,12 +453,13 @@ export const toNative = (project: Project, ir: QueryIR): NativeResult => {
   const language = NATIVE_LANGUAGE[project.engine];
   if (!bound.scopes.length) return { text: '', language, diagnostics: bound.diagnostics };
   const diagnostics = [...bound.diagnostics];
+  const out: Out = { extras: [] };
   const text =
     project.engine === 'mongodb'
       ? toMongo(project, bound.ir, bound.scopes, diagnostics)
       : project.engine === 'couchdb'
-        ? toCouch(bound.ir, bound.scopes, diagnostics)
-        : toFirestore(project, bound.ir, bound.scopes, diagnostics);
+        ? toCouch(bound.ir, bound.scopes, diagnostics, out, project.databaseName?.trim() || 'db')
+        : toFirestore(project, bound.ir, bound.scopes, diagnostics, out);
   for (const note of bound.ir.untranslated ?? []) warn(diagnostics, t('qe.untranslated', { part: note }));
-  return { text, language, diagnostics };
+  return { text, language, diagnostics, ...(out.extras.length ? { extras: out.extras } : {}), ...(out.missingIndex ? { missingIndex: out.missingIndex } : {}) };
 };

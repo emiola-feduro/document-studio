@@ -972,4 +972,13 @@ export const pt: Messages = {
   'query.replaceEditorTitle': "Substituir o texto do editor",
   'query.replaceEditorMessage': "O editor já tem uma consulta. Ela é substituída pela gerada.",
   'query.replaceEditorConfirm': "Substituir",
+  'qe.extra.mangoIndex': "Índice Mango para ordenar (POST /{database}/_index)",
+  'qe.extra.view': "View map/reduce para agrupar (documento de design)",
+  'qe.extra.viewCall': "Chamada à view",
+  'qe.extra.secondQuery': "Opção 1: segunda consulta com os documentos de {collection}",
+  'qe.extra.relatedView': "Opção 2: view que emite o documento relacionado",
+  'qe.extra.twoStepJoin': "Leitura em dois passos",
+  'qe.extra.groupInCode': "Agrupar no código",
+  'qe.firestoreNotEquals': "{path} com != ou not-in deixa de fora os documentos sem o campo, e o Firestore pede ordenar primeiro por {path}.",
+  'queryEditor.extras': "O que o motor também precisa",
 };

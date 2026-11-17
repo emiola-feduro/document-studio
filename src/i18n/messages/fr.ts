@@ -972,4 +972,13 @@ export const fr: Messages = {
   'query.replaceEditorTitle': "Remplacer le texte de l’éditeur",
   'query.replaceEditorMessage': "L’éditeur contient déjà une requête. Elle est remplacée par la requête générée.",
   'query.replaceEditorConfirm': "Remplacer",
+  'qe.extra.mangoIndex': "Index Mango pour trier (POST /{database}/_index)",
+  'qe.extra.view': "Vue map/reduce pour regrouper (document de conception)",
+  'qe.extra.viewCall': "Appel à la vue",
+  'qe.extra.secondQuery': "Option 1 : seconde requête avec les documents {collection}",
+  'qe.extra.relatedView': "Option 2 : vue qui émet le document lié",
+  'qe.extra.twoStepJoin': "Lecture en deux étapes",
+  'qe.extra.groupInCode': "Regrouper dans le code",
+  'qe.firestoreNotEquals': "{path} avec != ou not-in exclut les documents sans le champ, et Firestore demande de trier d’abord par {path}.",
+  'queryEditor.extras': "Ce dont le moteur a aussi besoin",
 };
