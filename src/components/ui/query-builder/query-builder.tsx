@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { editableQuery } from '../../../domain/query-builder';
+import { prepareGenerated } from '../../../domain/query/run';
+import useQueryRun from '../../../hooks/data/use-query-run';
+import QueryResults from '../query-results/query-results';
 import useQueryBuilder from '../../../hooks/data/use-query-builder';
 import useQueryStore from '../../../stores/use-query-store';
 import ConfirmDialog from '../confirm-dialog/confirm-dialog';
@@ -21,6 +24,9 @@ const QueryBuilder = () => {
   const builder = useQueryBuilder();
   const { result, root, spec, clear, collections, project } = builder;
   const [confirming, setConfirming] = useState(false);
+  const runner = useQueryRun();
+  const runKey = `${JSON.stringify(spec)}:${runner.documentsKey}`;
+  const run = () => project && void runner.run(() => prepareGenerated(project, spec), 'generated', runKey);
   const editorText = useQueryStore((s) => (project ? s.editors[project.id]?.text : undefined));
 
   /** Puts the generated query in the editor, on its native side, and opens the editor. */
@@ -63,6 +69,9 @@ const QueryBuilder = () => {
           <Button size="sm" onClick={() => void copy()} disabled={!result}>
             {t('common.copy')}
           </Button>
+          <Button size="sm" disabled={!result} onClick={run}>
+            {t('run.run')}
+          </Button>
           <Button size="sm" disabled={!result} onClick={() => (editorText?.trim() ? setConfirming(true) : toEditor())}>
             {t('query.copyToEditor')}
           </Button>
@@ -92,6 +101,9 @@ const QueryBuilder = () => {
             <div className="min-h-0 flex-1 overflow-auto">
               <SchemaViewCode code={result.code} language={result.language} />
             </div>
+            <section className="flex max-h-[50%] min-h-24 shrink-0 flex-col overflow-hidden border-t border-line" aria-label={t('run.results')}>
+              <QueryResults state={runner.state} stale={runner.state.status === 'done' && runner.state.key !== runKey} />
+            </section>
           </>
         ) : (
           <p className="p-6 text-muted">{collections.length ? t('query.empty') : t('query.noCollections')}</p>

@@ -12,6 +12,7 @@
         "fflate": "0.8.2",
         "html-to-image": "1.11.11",
         "lucide-react": "0.468.0",
+        "mingo": "7.2.6",
         "react": "18.3.1",
         "react-dom": "18.3.1",
         "yaml": "2.6.1",
@@ -608,6 +609,8 @@
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 
     "math-intrinsics": ["math-intrinsics@1.1.0", "", {}, "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g=="],
+
+    "mingo": ["mingo@7.2.6", "", {}, "sha512-vh7kGO+qZ4zmTHH5hFlXMgyb1RuInN6/++GA11cdQclZP2NXeOYo0V/kjS43YBgF3FuxuF0tZ9F6fIr0dE/vkA=="],
 
     "minimatch": ["minimatch@5.1.9", "", { "dependencies": { "brace-expansion": "^2.0.1" } }, "sha512-7o1wEA2RyMP7Iu7GNba9vc0RWWGACJOCZBJX2GJWip0ikV+wcOsgVuY9uE8CPiyQhkGFSlhuSkZPavN7u1c2Fw=="],
 

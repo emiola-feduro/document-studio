@@ -7,7 +7,8 @@ import IconButton from '../icon-button/icon-button';
 type DocumentsViewValuePanelProps = {
   title: string;
   value: unknown;
-  onSave: (value: unknown) => void;
+  /** Without it the value is only shown, as in query results. */
+  onSave?: (value: unknown) => void;
   onClose: () => void;
 };
 
@@ -19,7 +20,7 @@ const DocumentsViewValuePanel = ({ title, value, onSave, onClose }: DocumentsVie
 
   const save = () => {
     try {
-      onSave(JSON.parse(text));
+      onSave?.(JSON.parse(text));
       onClose();
     } catch (e) {
       setError(t('docs.err.json', { detail: e instanceof Error ? e.message : String(e) }));
@@ -41,6 +42,7 @@ const DocumentsViewValuePanel = ({ title, value, onSave, onClose }: DocumentsVie
         id="docs-value-editor"
         className="min-h-0 flex-1 resize-none bg-surface p-3 font-code text-[13px] outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent"
         value={text}
+        readOnly={!onSave}
         spellCheck={false}
         aria-invalid={Boolean(error)}
         onChange={(e) => {
@@ -53,14 +55,16 @@ const DocumentsViewValuePanel = ({ title, value, onSave, onClose }: DocumentsVie
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2 border-t border-line px-4 py-2">
-        <Button size="sm" onClick={onClose}>
-          {t('common.cancel')}
-        </Button>
-        <Button size="sm" variant="primary" onClick={save}>
-          {t('common.save')}
-        </Button>
-      </div>
+      {onSave && (
+        <div className="flex justify-end gap-2 border-t border-line px-4 py-2">
+          <Button size="sm" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button size="sm" variant="primary" onClick={save}>
+            {t('common.save')}
+          </Button>
+        </div>
+      )}
     </aside>
   );
 };

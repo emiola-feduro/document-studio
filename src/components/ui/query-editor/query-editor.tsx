@@ -11,6 +11,9 @@ import CodeEditor from '../code-editor/code-editor';
 import ConfirmDialog from '../confirm-dialog/confirm-dialog';
 import SegmentedControl from '../segmented-control/segmented-control';
 import QueryEditorProblems from './query-editor-problems';
+import QueryResults from '../query-results/query-results';
+import useQueryRun from '../../../hooks/data/use-query-run';
+import { prepareNative, prepareSql } from '../../../domain/query/run';
 
 const NATIVE_TITLE = { mongodb: 'MongoDB (mongosh)', couchdb: 'CouchDB (Mango _find)', firestore: 'Firestore (SDK)' } as const;
 
@@ -21,7 +24,10 @@ const QueryEditor = () => {
   const { project, side, text, setText, other, diagnostics, losses, extras, missingIndex, switchSide, nativeLanguage, complete, hoverFor, signature } = editor;
   const [confirming, setConfirming] = useState(false);
   const areaRef = useRef<HTMLTextAreaElement>(null);
+  const runner = useQueryRun();
   if (!project) return null;
+  const runKey = `${side}:${text}:${runner.documentsKey}`;
+  const run = () => void runner.run(() => (side === 'sql' ? prepareSql(project, text) : prepareNative(project, text)), side, runKey);
   const sample = project.collections[0]?.name ?? 'coleccion';
   const nativeExample =
     project.engine === 'mongodb' ? `db.${sample}.find({ })` : project.engine === 'couchdb' ? '{\n  "selector": { }\n}' : `query(\n  collection(db, "${sample}")\n)`;
@@ -72,6 +78,7 @@ const QueryEditor = () => {
             hover={hoverFor(which)}
             signature={editable ? signature : undefined}
             areaRef={editable ? areaRef : undefined}
+            onRun={editable ? run : undefined}
           />
         </div>
       </section>
@@ -93,7 +100,10 @@ const QueryEditor = () => {
             { value: 'native', label: t('queryEditor.native') },
           ]}
         />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="primary" size="sm" onClick={run} disabled={!text.trim()} title="Ctrl+Enter">
+            {t('run.run')}
+          </Button>
           <PanelsRestoreButton />
         </div>
       </div>
@@ -126,6 +136,9 @@ const QueryEditor = () => {
         </section>
       )}
       <QueryEditorProblems diagnostics={diagnostics} text={text} areaRef={areaRef} onFix={editor.applyFix} />
+      <section className="flex max-h-[45%] min-h-24 shrink-0 flex-col overflow-hidden border-t border-line bg-bg" aria-label={t('run.results')}>
+        <QueryResults state={runner.state} stale={runner.state.status === 'done' && runner.state.key !== runKey} />
+      </section>
       <ConfirmDialog
         open={confirming}
         title={t('queryEditor.switchTitle', { side: side === 'sql' ? t('queryEditor.native') : 'SQL' })}

@@ -24,6 +24,8 @@ type CodeEditorProps = {
   /** One line of help for the call the cursor is in. */
   signature?: (text: string, caret: number) => string | undefined;
   areaRef?: RefObject<HTMLTextAreaElement>;
+  /** Ctrl+Enter: runs the query. It never accepts a suggestion. */
+  onRun?: () => void;
 };
 
 // Same box for the text area and the colored copy under it, so the letters line up.
@@ -104,7 +106,7 @@ const pointOf = (area: HTMLTextAreaElement, offset: number) => {
  * names and one line of help for the current call. The typed text is transparent and a colored copy
  * sits underneath, scrolled together; caret, selection and keys are the browser's own.
  */
-const CodeEditor = ({ id, label, value, onChange, language, readOnly = false, placeholder, complete, marks = [], hover, signature, areaRef: externalRef }: CodeEditorProps) => {
+const CodeEditor = ({ id, label, value, onChange, language, readOnly = false, placeholder, complete, marks = [], hover, signature, areaRef: externalRef, onRun }: CodeEditorProps) => {
   const t = useT();
   const backdropRef = useRef<HTMLPreElement>(null);
   const ownRef = useRef<HTMLTextAreaElement>(null);
@@ -166,6 +168,12 @@ const CodeEditor = ({ id, label, value, onChange, language, readOnly = false, pl
         onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
         onKeyDown={(e) => {
           setTip(null);
+          if (onRun && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            completion.close();
+            onRun();
+            return;
+          }
           // Ctrl+K then Ctrl+I shows the information of the name at the caret.
           if (e.ctrlKey && e.key.toLowerCase() === 'k') {
             e.preventDefault();
