@@ -961,4 +961,6 @@ export const pt: Messages = {
   'inspector.extraValidator': "Outras regras do validador ($expr)",
   'inspector.extraValidatorInvalid': "Não é um JSON válido; o validador é escrito sem essas regras.",
   'inspector.validatorTitle': "Título do validador",
+  'columns.resize': "Largura da coluna {name}",
+  'columns.resizeHint': "Arraste para mudar a largura. Clique duplo para ajustar ao conteúdo.",
 };

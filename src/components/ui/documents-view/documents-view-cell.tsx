@@ -11,7 +11,7 @@ type DocumentsViewCellProps = {
   onOpen: () => void;
 };
 
-const summary = (value: unknown, t: ReturnType<typeof useT>) => {
+export const summary = (value: unknown, t: ReturnType<typeof useT>) => {
   if (Array.isArray(value)) return t('docs.arrayItems', { count: value.length });
   if (value && typeof value === 'object') {
     const keys = Object.keys(value);
@@ -20,6 +20,10 @@ const summary = (value: unknown, t: ReturnType<typeof useT>) => {
   }
   return '';
 };
+
+/** What a cell shows, to fit the column width: the summary of an object or array, or the value as text. */
+export const cellText = (value: unknown, present: boolean, t: ReturnType<typeof useT>) =>
+  !present ? t('docs.missing') : value !== null && typeof value === 'object' ? summary(value, t) : typeof value === 'string' ? value : JSON.stringify(value);
 
 /** Text written in a cell: JSON when it parses (numbers, true, null), plain text otherwise; empty removes the key. */
 const parseCell = (text: string): { value: unknown; remove: boolean } => {
@@ -52,7 +56,7 @@ const DocumentsViewCell = ({ id, label, value, present, invalid, onChange, onOpe
       </label>
       <input
         id={id}
-        className={`field field-sm min-w-24 font-canvas ${invalid ? 'border-danger' : ''}`}
+        className={`field field-sm w-full min-w-0 font-canvas ${invalid ? 'border-danger' : ''}`}
         value={draft}
         placeholder={present ? '' : t('docs.missing')}
         spellCheck={false}

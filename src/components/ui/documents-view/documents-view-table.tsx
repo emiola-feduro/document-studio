@@ -1,11 +1,15 @@
 import { Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { parseDocument, type DocResult, type JsonObject } from '../../../domain/documents';
 import type { Collection, SampleDocument } from '../../../domain/types';
+import { displayType } from '../../../domain/outputs/json-schema';
+import useColumnWidths, { type FitColumn } from '../../../hooks/ui/use-column-widths';
 import useT from '../../../hooks/ui/use-t';
+import useProjectStore from '../../../stores/use-project-store';
+import ColumnResizeHandle from '../column-resize-handle/column-resize-handle';
 import { deleteDocument, updateDocument } from '../../../lib/actions';
 import IconButton from '../icon-button/icon-button';
-import DocumentsViewCell from './documents-view-cell';
+import DocumentsViewCell, { cellText } from './documents-view-cell';
 import DocumentsViewValuePanel from './documents-view-value-panel';
 
 type DocumentsViewTableProps = {
@@ -13,6 +17,9 @@ type DocumentsViewTableProps = {
   docs: SampleDocument[];
   results: DocResult[];
 };
+
+const ROW_NUMBER = 48;
+const ACTIONS = 44;
 
 /** Top level fields as columns; objects and arrays open in a side panel. */
 const DocumentsViewTable = ({ collection, docs, results }: DocumentsViewTableProps) => {
@@ -25,21 +32,43 @@ const DocumentsViewTable = ({ collection, docs, results }: DocumentsViewTablePro
     return names;
   }, [collection.fields, parsed]);
 
+  const project = useProjectStore((s) => s.project);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const typeOf = (name: string) => {
+    const field = collection.fields.find((f) => f.name === name);
+    return field && project ? `${displayType(project.engine, field)}${field.required ? ' *' : ''}` : '';
+  };
+  const fitColumns = useMemo(
+    (): FitColumn[] => columns.map((c) => ({ key: c, header: [c, typeOf(c)], values: parsed.map((p) => (p.value ? cellText(p.value[c], c in p.value, t) : '')) })),
+    [columns, parsed, t, collection.fields, project?.engine], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  // Fitted to the content like a double click in Excel, filling the width, dragged widths kept per collection.
+  const widths = useColumnWidths(`${project?.id ?? ''}:${collection.id}`, fitColumns, tableRef, { extra: 36, min: 72, max: 480, headerExtra: 28 }, 'input', ROW_NUMBER + ACTIONS);
+
   const write = (doc: SampleDocument, value: JsonObject) => updateDocument(collection.id, doc.id, JSON.stringify(value, null, 2));
   const openDoc = open ? parsed.find((p) => p.doc.id === open.docId) : undefined;
 
   return (
     <div className="flex min-h-0 flex-1">
       <div className="relative min-h-0 min-w-0 flex-1 overflow-auto">
-        <table className="min-w-full border-separate border-spacing-0 text-[0.95em]">
+        <table ref={tableRef} className="table-fixed border-separate border-spacing-0 text-[0.95em]" style={{ width: widths.total }}>
+          <colgroup>
+            <col style={{ width: ROW_NUMBER }} />
+            {columns.map((c) => (
+              <col key={c} style={{ width: widths.widthOf(c) }} />
+            ))}
+            <col style={{ width: ACTIONS }} />
+          </colgroup>
           <thead className="sticky top-0 z-10 bg-surface">
             <tr>
               <th scope="col" className="border-b border-line px-2 py-2 text-left font-semibold text-muted">
                 #
               </th>
               {columns.map((c) => (
-                <th key={c} scope="col" className="border-b border-line px-2 py-2 text-left font-semibold whitespace-nowrap font-canvas">
-                  {c}
+                <th key={c} scope="col" className="relative border-b border-line px-2 py-2 text-left font-semibold whitespace-nowrap font-canvas">
+                  <span className="block truncate">{c}</span>
+                  {typeOf(c) && <span className="block truncate text-[0.85em] font-normal text-muted">{typeOf(c)}</span>}
+                  <ColumnResizeHandle column={c} width={widths.widthOf(c)} onResize={(w) => widths.resize(c, w)} onFit={() => widths.fit(c)} />
                 </th>
               ))}
               <th scope="col" className="border-b border-line px-2 py-2">
@@ -64,7 +93,7 @@ const DocumentsViewTable = ({ collection, docs, results }: DocumentsViewTablePro
                     </td>
                   ) : (
                     columns.map((c) => (
-                      <td key={c} className="max-w-56 border-b border-line px-1 py-1">
+                      <td key={c} className="border-b border-line px-1 py-1">
                         <DocumentsViewCell
                           id={`cell-${doc.id}-${c}`}
                           label={t('docs.cellLabel', { field: c, n: i + 1 })}

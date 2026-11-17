@@ -964,6 +964,8 @@ export const es = {
   'inspector.extraValidator': "Otras reglas del validador ($expr)",
   'inspector.extraValidatorInvalid': "No es JSON válido; el validador se escribe sin estas reglas.",
   'inspector.validatorTitle': "Título del validador",
+  'columns.resize': "Ancho de la columna {name}",
+  'columns.resizeHint': "Arrastra para cambiar el ancho. Doble clic para ajustarlo al contenido.",
 } as const;
 
 export type Messages = { [K in keyof typeof es]: string };
