@@ -963,4 +963,13 @@ export const en: Messages = {
   'inspector.validatorTitle': "Validator title",
   'columns.resize': "Width of the {name} column",
   'columns.resizeHint': "Drag to change the width. Double click to fit it to the content.",
+  'query.alias': "Name in the result",
+  'query.aliasProblem.dollar': "It cannot start with $; {name} is used.",
+  'query.aliasProblem.dot': "It cannot have dots; {name} is used.",
+  'query.aliasProblem.taken': "That name is already in the document; {name} is used.",
+  'query.aliasProblem.empty': "Without a name, {name} is used.",
+  'query.copyToEditor': "Copy to the editor",
+  'query.replaceEditorTitle': "Replace the editor text",
+  'query.replaceEditorMessage': "The editor already has a query. It is replaced by the generated one.",
+  'query.replaceEditorConfirm': "Replace",
 };

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSampleProject } from '../lib/sample-project';
 import { changeEngine } from './engine-change';
-import { buildQuery, couchQuery, firestoreQuery, joinOptions, mongoQuery, queryPaths, type QuerySpec } from './query-builder';
+import { buildQuery, couchQuery, editableQuery, firestoreQuery, joinOptions, mongoQuery, queryPaths, renameAliasInFilter, type QuerySpec } from './query-builder';
+import { parseNative } from './query/native-parse';
 import { filterCompletions } from './query-filter';
 import type { Project } from './types';
 
@@ -201,5 +202,35 @@ describe('filter completions', () => {
     expect(mongo).toContain('containsCi');
     expect(firestore).not.toContain('containsCi');
     expect(filterCompletions('couchdb', p, '{ "nombre": ', '', 'texto').find((i) => i.meaning === 'containsCi')?.value).toContain('(?i)');
+  });
+});
+
+describe('editable aliases and the editor', () => {
+  it('uses a chosen name for the joined documents and falls back when it is not valid', () => {
+    const { project, pedidos } = setup();
+    const spec: QuerySpec = { rootId: pedidos, joins: ['clienteId'], aliases: { clienteId: 'comprador' }, limit: 0 };
+    expect(joinOptions(project, spec)[0]).toMatchObject({ as: 'comprador', defaultAs: 'cliente' });
+    expect(runShell(mongoQuery(project, spec)!.code)[0].args[0]).toContainEqual({ $lookup: { from: 'clientes', localField: 'clienteId', foreignField: '_id', as: 'comprador' } });
+    for (const [name, problem] of [['$x', 'dollar'], ['a.b', 'dot'], ['estado', 'taken']] as const) {
+      const option = joinOptions(project, { ...spec, aliases: { clienteId: name } })[0];
+      expect(option).toMatchObject({ as: 'cliente', aliasProblem: problem });
+    }
+  });
+
+  it('renames the joined documents in the filter keys only', () => {
+    const filter = '{ "cliente.nombre": "cliente", "cliente": { "$exists": true }, "clienteId": 1 }';
+    expect(renameAliasInFilter(filter, 'cliente', 'comprador')).toBe('{ "comprador.nombre": "cliente", "comprador": { "$exists": true }, "clienteId": 1 }');
+  });
+
+  it('copies to the editor a query it can read back in every engine', () => {
+    for (const engine of ['mongodb', 'couchdb', 'firestore'] as const) {
+      const { project, pedidos } = setup();
+      if (engine !== 'mongodb') changeEngine(project, engine);
+      const result = buildQuery(project, { rootId: pedidos, joins: [], filter: '{ "estado": "pagado" }', sortPath: 'fecha', limit: 5 })!;
+      const text = editableQuery(engine, result.code);
+      const back = parseNative(project, text);
+      expect(back.diagnostics.filter((d) => d.severity === 'error'), `${engine}: ${text}`).toEqual([]);
+      expect(back.ir?.limit).toBe(5);
+    }
   });
 });

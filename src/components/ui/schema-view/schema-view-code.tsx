@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Language } from '../../../domain/outputs';
+import { TOKEN_CLASS, tokenizeJs, tokenizeSql, type CodeToken } from '../../../lib/code-highlight';
 
 type Token = { text: string; kind: 'kw' | 'comment' | 'string' | 'number' | 'key' | 'plain' };
 
@@ -49,8 +50,15 @@ const tokenize = (line: string, language: Language): Token[] => {
 
 const kindClass = { kw: 'text-accent font-semibold', comment: 'text-muted italic', string: 'text-success', number: 'text-pk', key: 'text-fk', plain: '' };
 
+const SHARED: Partial<Record<Language, (line: string) => CodeToken[]>> = { js: tokenizeJs, ts: tokenizeJs, json: tokenizeJs, sql: tokenizeSql };
+
 const SchemaViewCode = ({ code, language }: { code: string; language: Language }) => {
-  const lines = useMemo(() => code.split('\n').map((l) => tokenize(l, language)), [code, language]);
+  // The editor's highlighting for the languages it knows, so code looks the same everywhere.
+  const shared = SHARED[language];
+  const lines = useMemo(
+    () => code.split('\n').map((l) => (shared ? shared(l).map((tk) => ({ text: tk.text, className: TOKEN_CLASS[tk.kind] })) : tokenize(l, language).map((tk) => ({ text: tk.text, className: kindClass[tk.kind] })))),
+    [code, language, shared],
+  );
 
   return (
     <pre className="relative min-h-0 flex-1 overflow-auto p-4 font-code text-[13px] leading-relaxed">
@@ -58,7 +66,7 @@ const SchemaViewCode = ({ code, language }: { code: string; language: Language }
       <code className="font-[inherit]">
         {lines.map((tokens, i) => (
           <div key={i}>
-            {tokens.length === 0 ? ' ' : tokens.map((tk, j) => <span key={j} className={kindClass[tk.kind]}>{tk.text}</span>)}
+            {tokens.length === 0 ? ' ' : tokens.map((tk, j) => <span key={j} className={tk.className}>{tk.text}</span>)}
           </div>
         ))}
       </code>

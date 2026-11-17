@@ -966,6 +966,15 @@ export const es = {
   'inspector.validatorTitle': "Título del validador",
   'columns.resize': "Ancho de la columna {name}",
   'columns.resizeHint': "Arrastra para cambiar el ancho. Doble clic para ajustarlo al contenido.",
+  'query.alias': "Nombre en el resultado",
+  'query.aliasProblem.dollar': "No puede empezar con $; se usa {name}.",
+  'query.aliasProblem.dot': "No puede tener puntos; se usa {name}.",
+  'query.aliasProblem.taken': "Ese nombre ya está en el documento; se usa {name}.",
+  'query.aliasProblem.empty': "Sin nombre se usa {name}.",
+  'query.copyToEditor': "Copiar al editor",
+  'query.replaceEditorTitle': "Reemplazar el texto del editor",
+  'query.replaceEditorMessage': "El editor ya tiene una consulta. Se reemplaza por la generada.",
+  'query.replaceEditorConfirm': "Reemplazar",
 } as const;
 
 export type Messages = { [K in keyof typeof es]: string };

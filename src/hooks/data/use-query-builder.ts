@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { buildQuery, EMPTY_QUERY, joinOptions, queryPaths, type JoinMode, type QueryPath, type QuerySpec } from '../../domain/query-builder';
+import { buildQuery, EMPTY_QUERY, joinOptions, queryPaths, renameAliasInFilter, type JoinMode, type QueryPath, type QuerySpec } from '../../domain/query-builder';
 import useProjectStore from '../../stores/use-project-store';
 import useQueryStore from '../../stores/use-query-store';
 
@@ -39,6 +39,18 @@ const useQueryBuilder = () => {
       joins: on ? [...s.joins, id] : s.joins.filter((j) => j !== id && !j.startsWith(`${id}/`)),
     }));
   const setMode = (id: string, mode: JoinMode) => setSpec((s) => ({ ...s, modes: { ...s.modes, [id]: mode } }));
+  /** Names the joined documents; the filter follows the new name. An empty name goes back to the default. */
+  const setAlias = (id: string, name: string) =>
+    setSpec((s) => {
+      if (!project) return s;
+      const before = joinOptions(project, s).find((o) => o.id === id)?.as;
+      const aliases = { ...s.aliases };
+      if (name.trim()) aliases[id] = name;
+      else delete aliases[id];
+      const next = { ...s, aliases };
+      const after = joinOptions(project, next).find((o) => o.id === id)?.as;
+      return before && after && before !== after && next.filter ? { ...next, filter: renameAliasInFilter(next.filter, before, after) } : next;
+    });
   const toggleField = (key: string, all: string[], name: string, on: boolean) =>
     setSpec((s) => {
       const current = s.fields?.[key] ?? all;
@@ -58,7 +70,7 @@ const useQueryBuilder = () => {
   const update = (patch: Partial<QuerySpec>) => setSpec((s) => ({ ...s, ...patch }));
   const clear = () => setSpec(() => EMPTY_QUERY);
 
-  return { project, collections, root, spec, options, joins, result, filterPaths, setRoot, toggleJoin, setMode, toggleField, setAllFields, update, clear };
+  return { project, collections, root, spec, options, joins, result, filterPaths, setRoot, toggleJoin, setMode, setAlias, toggleField, setAllFields, update, clear };
 };
 
 export type QueryBuilderState = ReturnType<typeof useQueryBuilder>;

@@ -963,4 +963,13 @@ export const pt: Messages = {
   'inspector.validatorTitle': "Título do validador",
   'columns.resize': "Largura da coluna {name}",
   'columns.resizeHint': "Arraste para mudar a largura. Clique duplo para ajustar ao conteúdo.",
+  'query.alias': "Nome no resultado",
+  'query.aliasProblem.dollar': "Não pode começar com $; usa-se {name}.",
+  'query.aliasProblem.dot': "Não pode ter pontos; usa-se {name}.",
+  'query.aliasProblem.taken': "Esse nome já está no documento; usa-se {name}.",
+  'query.aliasProblem.empty': "Sem nome, usa-se {name}.",
+  'query.copyToEditor': "Copiar para o editor",
+  'query.replaceEditorTitle': "Substituir o texto do editor",
+  'query.replaceEditorMessage': "O editor já tem uma consulta. Ela é substituída pela gerada.",
+  'query.replaceEditorConfirm': "Substituir",
 };

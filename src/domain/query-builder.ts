@@ -2,6 +2,7 @@ import { t } from '../i18n';
 import { ID_KEY } from './engines';
 import { docIdParam } from './model';
 import { discriminator } from './outputs/couchdb';
+import { balancedArgs } from './import/js-literal';
 import { jsLiteral, RawJs } from './outputs/shared';
 import { toMongoPath, walkFields } from './paths';
 import type { Collection, Field, Project } from './types';
@@ -20,6 +21,8 @@ export type QuerySpec = {
   /** Ids of the references to resolve, see `joinOptions`. */
   joins: string[];
   modes?: Record<string, JoinMode>;
+  /** Names chosen for the joined documents (the `as` of $lookup), by join id. */
+  aliases?: Record<string, string>;
   /** Fields to return by part of the query ('' is the base collection, else a join id). Missing means all. */
   fields?: Record<string, string[]>;
   filter?: string;
@@ -44,6 +47,10 @@ export type JoinOption = {
   many: boolean;
   /** Field that receives the referenced documents. */
   as: string;
+  /** The name it would take without a chosen one. */
+  defaultAs: string;
+  /** A chosen name that cannot be used, so the default one is used instead. */
+  aliasProblem?: 'dollar' | 'dot' | 'taken' | 'empty';
   field: Field;
 };
 
@@ -55,6 +62,22 @@ const aliasFor = (path: string, target: Collection, many: boolean) => {
   if (many) return target.name;
   const base = lastSegment(path).replace(/(_ids?|Ids?)$/, '');
   return base && base !== lastSegment(path) ? base : `${lastSegment(path)}Doc`;
+};
+
+/** Why a name cannot hold the joined documents: MongoDB field names cannot start with $ or have dots. */
+export const aliasProblemOf = (name: string, taken: Set<string>): JoinOption['aliasProblem'] => {
+  const n = name.trim();
+  if (!n) return 'empty';
+  if (n.startsWith('$')) return 'dollar';
+  if (n.includes('.')) return 'dot';
+  return taken.has(n) ? 'taken' : undefined;
+};
+
+/** Renames a joined document in a JSON filter: the keys that start with it, never the values. */
+export const renameAliasInFilter = (filter: string, from: string, to: string) => {
+  if (!from || from === to) return filter;
+  const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return filter.replace(new RegExp(`"${escaped}((?:\\.[^"]*)?)"(\\s*:)`, 'g'), (_m, rest: string, colon: string) => `"${to}${rest}"${colon}`);
 };
 
 /** References that can be resolved from the base collection and from the single joins already chosen. */
@@ -73,11 +96,14 @@ export const joinOptions = (project: Project, spec: QuerySpec): JoinOption[] => 
       const target = targetId && project.collections.find((c) => c.id === targetId);
       if (!target) continue;
       const many = field.type === 'array' || inArray;
-      let as = aliasFor(path, target, many);
-      for (let i = 2; taken.has(as); i += 1) as = `${aliasFor(path, target, many)}${i}`;
-      taken.add(as);
       const id = parentId ? `${parentId}/${path}` : path;
-      const option: JoinOption = { id, parentId, from: collection, path, target, many, as: prefix ? `${prefix}.${as}` : as, field };
+      let fallback = aliasFor(path, target, many);
+      for (let i = 2; taken.has(fallback); i += 1) fallback = `${aliasFor(path, target, many)}${i}`;
+      const chosen = spec.aliases?.[id];
+      const aliasProblem = chosen === undefined ? undefined : aliasProblemOf(chosen, taken);
+      const as = chosen !== undefined && !aliasProblem ? chosen.trim() : fallback;
+      taken.add(as);
+      const option: JoinOption = { id, parentId, from: collection, path, target, many, as: prefix ? `${prefix}.${as}` : as, defaultAs: fallback, field, ...(aliasProblem ? { aliasProblem } : {}) };
       options.push(option);
       // A single joined document can be followed further; arrays stop here to keep the result readable.
       if (!many && depth + 1 < MAX_DEPTH && spec.joins.includes(id)) {
@@ -427,3 +453,16 @@ export const couchQuery = (project: Project, spec: QuerySpec): QueryResult | und
 
 export const buildQuery = (project: Project, spec: QuerySpec): QueryResult | undefined =>
   project.engine === 'mongodb' ? mongoQuery(project, spec) : project.engine === 'firestore' ? firestoreQuery(project, spec) : couchQuery(project, spec);
+
+/**
+ * The part of a generated query the editor reads: mongosh as it is, the Mango body without the HTTP
+ * lines, and the query(...) call without the function around it.
+ */
+export const editableQuery = (engine: Project['engine'], code: string) => {
+  if (engine === 'mongodb') return code.trim();
+  if (engine === 'couchdb') return /\n\n(\{[\s\S]*?\n\})/.exec(code)?.[1] ?? code.trim();
+  const start = code.indexOf('query(');
+  const inside = start < 0 ? undefined : balancedArgs(code, start + 5);
+  if (inside === undefined) return code.trim();
+  return `query(${inside.replace(/\n {4}/g, '\n  ').replace(/\n {2}$/, '\n')})`;
+};

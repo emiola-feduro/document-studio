@@ -1,4 +1,8 @@
+import { useState } from 'react';
+import { editableQuery } from '../../../domain/query-builder';
 import useQueryBuilder from '../../../hooks/data/use-query-builder';
+import useQueryStore from '../../../stores/use-query-store';
+import ConfirmDialog from '../confirm-dialog/confirm-dialog';
 import useT from '../../../hooks/ui/use-t';
 import { addIndexWithKeys } from '../../../lib/actions';
 import { downloadText } from '../../../lib/project-file';
@@ -15,7 +19,17 @@ import QueryBuilderRoot from './query-builder-root';
 const QueryBuilder = () => {
   const t = useT();
   const builder = useQueryBuilder();
-  const { result, root, spec, clear, collections } = builder;
+  const { result, root, spec, clear, collections, project } = builder;
+  const [confirming, setConfirming] = useState(false);
+  const editorText = useQueryStore((s) => (project ? s.editors[project.id]?.text : undefined));
+
+  /** Puts the generated query in the editor, on its native side, and opens the editor. */
+  const toEditor = () => {
+    if (!project || !result) return;
+    const { setEditor, setMode } = useQueryStore.getState();
+    setEditor(project.id, { side: 'native', text: editableQuery(project.engine, result.code) });
+    setMode(project.id, 'editor');
+  };
 
   const copy = async () => {
     const { notify } = useUiStore.getState();
@@ -49,6 +63,9 @@ const QueryBuilder = () => {
           <Button size="sm" onClick={() => void copy()} disabled={!result}>
             {t('common.copy')}
           </Button>
+          <Button size="sm" disabled={!result} onClick={() => (editorText?.trim() ? setConfirming(true) : toEditor())}>
+            {t('query.copyToEditor')}
+          </Button>
           <Button size="sm" variant="primary" disabled={!result} onClick={() => result && downloadText(result.fileName, result.code, 'text/plain')}>
             {t('query.download')}
           </Button>
@@ -80,6 +97,17 @@ const QueryBuilder = () => {
           <p className="p-6 text-muted">{collections.length ? t('query.empty') : t('query.noCollections')}</p>
         )}
       </div>
+      <ConfirmDialog
+        open={confirming}
+        title={t('query.replaceEditorTitle')}
+        message={t('query.replaceEditorMessage')}
+        confirmLabel={t('query.replaceEditorConfirm')}
+        onCancel={() => setConfirming(false)}
+        onConfirm={() => {
+          setConfirming(false);
+          toEditor();
+        }}
+      />
     </div>
   );
 };
