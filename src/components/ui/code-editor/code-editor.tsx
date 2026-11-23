@@ -266,7 +266,8 @@ const CodeEditor = ({ id, label, value, onChange, language, readOnly = false, pl
                   e.preventDefault();
                   completion.accept(i);
                 }}
-                onMouseEnter={() => completion.setActive(i)}
+                // Only a real move picks: a list that opens under a still pointer keeps its first option.
+                onMouseMove={(e) => (e.movementX || e.movementY) && i !== completion.active && completion.setActive(i)}
                 className={`flex cursor-pointer items-baseline justify-between gap-4 px-2.5 py-1 ${i === completion.active ? 'bg-accent-soft' : ''}`}
               >
                 <span className="min-w-0 truncate font-code text-[0.92em]">{item.label}</span>

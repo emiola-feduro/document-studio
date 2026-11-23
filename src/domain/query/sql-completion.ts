@@ -25,6 +25,9 @@ const FUNCTIONS = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
 
 const NUMBERS = new Set(['int', 'long', 'double', 'decimal', 'number']);
 
+/** What an aggregate returns, to offer its operators in HAVING. */
+const NUMBER: Field = { id: 'aggregate', name: 'aggregate', type: 'long', required: true, nullable: false };
+
 type Col = { collection: Collection; alias?: string };
 
 export type Column = { path: string; field: Field };
@@ -70,7 +73,8 @@ const NOT_ALIAS = 'ON|WHERE|JOIN|LEFT|INNER|OUTER|GROUP|ORDER|HAVING|LIMIT|OFFSE
 /** Collections named after FROM, JOIN or a comma in FROM, with their aliases. */
 export const collectionRefs = (code: string, project: Project): Col[] => {
   const refs: Col[] = [];
-  const pattern = new RegExp(String.raw`(?:\bFROM|\bJOIN|,)\s+("[^"]+"|[A-Za-z_][\w$]*)(?:\s+(?:AS\s+)?(?!(?:${NOT_ALIAS})\b)([A-Za-z_][\w$]*))?`, 'gi');
+  // A keyword is never a collection or an alias: in "SELECT a, FROM t" the comma is not followed by a collection.
+  const pattern = new RegExp(String.raw`(?:\bFROM|\bJOIN|,)\s+(?!(?:${NOT_ALIAS})\b)("[^"]+"|[A-Za-z_][\w$]*)(?:\s+(?:AS\s+)?(?!(?:${NOT_ALIAS})\b)([A-Za-z_][\w$]*))?`, 'gi');
   for (const m of code.matchAll(pattern)) {
     const name = m[1].replace(/^"(.*)"$/, '$1');
     const collection = project.collections.find((c) => c.name.toLowerCase() === name.toLowerCase());
@@ -187,7 +191,8 @@ export const sqlCompletions = (text: string, caret: number, project: Project, sa
   const qualifier = qualifierRef ? segments[0] : undefined;
   const pathPrefix = (qualifier ? segments.slice(1) : segments).join('.');
   const from = caret - partial.length - (pathPrefix ? pathPrefix.length + 1 : 0);
-  const to = caret + (/^[\w$]*/.exec(text.slice(caret))?.[0].length ?? 0);
+  // Accepting in the middle of a word replaces it whole; at its start, the word stays.
+  const to = /[\w$.]$/.test(before) ? caret + (/^[\w$]*/.exec(text.slice(caret))?.[0].length ?? 0) : caret;
   const wordStart = from - (qualifier ? qualifier.length + 1 : 0);
   const head = codeBefore.slice(0, wordStart);
   const prev = /([A-Za-z_][\w$]*|[,(=<>!]+)\s*$/.exec(head)?.[1]?.toUpperCase() ?? '';
@@ -225,6 +230,11 @@ export const sqlCompletions = (text: string, caret: number, project: Project, sa
     return refs.flatMap((r) => fieldItems(r, qualify));
   };
   const functions = (): SqlItem[] => FUNCTIONS.map((f) => ({ label: `${f}()`, insert: `${f}(`, kind: 'function' }));
+  /** Names given with AS in the SELECT list, which HAVING and ORDER BY can use. */
+  const selectAliases = (): SqlItem[] => {
+    const list = /\bSELECT\b([\s\S]*?)\bFROM\b/i.exec(code)?.[1] ?? '';
+    return [...new Set([...list.matchAll(/\bAS\s+([A-Za-z_][\w$]*)/gi)].map((x) => x[1]))].map((name) => ({ label: name, insert: `${name} `, kind: 'field' as const, detail: 'AS' }));
+  };
 
   /** "x.field" pairs already written, to guess the collection of an alias not declared yet. */
   const qualified = new Map<string, Set<string>>();
@@ -311,7 +321,21 @@ export const sqlCompletions = (text: string, caret: number, project: Project, sa
   }
 
   // After a field in WHERE, HAVING or ON: operators of its type, filtered by what is typed (L for LIKE, I for IN).
-  if (['WHERE', 'ON', 'HAVING'].includes(clause) && !qualifier && !pathPrefix) {
+  // In HAVING, after COUNT(*) or the alias given to an aggregate: the operators of a number.
+  if (clause === 'HAVING' && !qualifier && !pathPrefix) {
+    const aliases = new Set([...code.matchAll(/\b(?:COUNT|SUM|AVG|MIN|MAX)\s*\([^()]*\)\s+AS\s+([A-Za-z_][\w$]*)/gi)].map((x) => x[1].toLowerCase()));
+    const aggregate = /(?:\b(?:COUNT|SUM|AVG|MIN|MAX)\s*\([^()]*\)|\b([A-Za-z_][\w$]*))\s+(NOT\s+)?$/i.exec(head);
+    if (aggregate && (!aggregate[1] || aliases.has(aggregate[1].toLowerCase()))) {
+      let ops = sqlOperatorsFor(NUMBER, sample);
+      if (aggregate[2]) ops = ops.filter((o) => /^(IN|BETWEEN)\b/.test(o.op));
+      const fitting = ops.filter((o) => o.op.toUpperCase().startsWith(partial.toUpperCase()));
+      if (fitting.length) return { from, to, items: fitting.map((o) => ({ label: o.op, insert: `${o.op} `, kind: 'operator' as const, meaning: o.meaning, detail: o.detail })) };
+    }
+  }
+
+  // A field on the right of a comparison (p.clienteId = c._id) completes the condition.
+  const rightSide = /[=<>!]\s*(?:[A-Za-z_][\w$]*\.)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s+$/.test(head);
+  if (['WHERE', 'ON', 'HAVING'].includes(clause) && !qualifier && !pathPrefix && !rightSide) {
     const last = /(?:([A-Za-z_][\w$]*)\.)?([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s+(NOT\s+)?$/i.exec(head);
     if (last && !KEYWORDS.has(last[2].toUpperCase())) {
       const fullPath = last[1] && !byName(last[1]) ? `${last[1]}.${last[2]}` : last[2];
@@ -333,7 +357,8 @@ export const sqlCompletions = (text: string, caret: number, project: Project, sa
     case 'START':
       return result([keyword('SELECT')]);
     case 'SELECT': {
-      const items = [...queryFields(), ...functions(), keyword('DISTINCT'), keyword('FROM'), keyword('AS')];
+      // FROM only when the query does not have it yet after the cursor.
+      const items = [...queryFields(), ...functions(), keyword('DISTINCT'), ...(/\bFROM\b/i.test(code.slice(to)) ? [] : [keyword('FROM')]), keyword('AS')];
       if (!refs.length) {
         // No FROM yet: every collection's fields, those already used in the list first.
         const order = [...wanted, ...project.collections.filter((c) => !wanted.some((w) => w.collection.id === c.id)).map((c) => ({ collection: c }))];
@@ -348,14 +373,16 @@ export const sqlCompletions = (text: string, caret: number, project: Project, sa
     case 'WHERE':
     case 'ON':
     case 'HAVING': {
-      const complete = /('(?:[^']|'')*'|\b\d+(?:\.\d+)?|\)|\bNULL|\bTRUE|\bFALSE)\s+$/i.test(before.slice(0, before.length - partial.length));
-      if (complete) return result([...['AND', 'OR', 'GROUP BY', 'ORDER BY', 'LIMIT'].map(keyword), ...queryFields()]);
-      return result([...queryFields(), ...(clause === 'HAVING' ? functions() : []), ...['NOT', '('].map((k) => ({ label: k, insert: k === '(' ? '(' : `${k} `, kind: 'keyword' as const }))]);
+      const complete = rightSide || /('(?:[^']|'')*'|\b\d+(?:\.\d+)?|\)|\bNULL|\bTRUE|\bFALSE)\s+$/i.test(before.slice(0, before.length - partial.length));
+      // GROUP BY cannot come after HAVING, and after ON the query may go on with another JOIN or WHERE.
+      const next = clause === 'HAVING' ? ['AND', 'OR', 'ORDER BY', 'LIMIT'] : clause === 'ON' ? ['AND', 'OR', 'JOIN', 'LEFT JOIN', 'WHERE', 'GROUP BY', 'ORDER BY', 'LIMIT'] : ['AND', 'OR', 'GROUP BY', 'ORDER BY', 'LIMIT'];
+      if (complete) return result([...next.map(keyword), ...queryFields()]);
+      return result([...(clause === 'HAVING' ? [...selectAliases(), ...functions()] : []), ...queryFields(), ...['NOT', '('].map((k) => ({ label: k, insert: k === '(' ? '(' : `${k} `, kind: 'keyword' as const }))]);
     }
     case 'GROUP BY':
       return result([...queryFields(), ...['HAVING', 'ORDER BY', 'LIMIT'].map(keyword)]);
     case 'ORDER BY':
-      return result([...queryFields(), ...functions(), ...['ASC', 'DESC', 'LIMIT', 'OFFSET'].map(keyword)]);
+      return result([...selectAliases(), ...queryFields(), ...functions(), ...['ASC', 'DESC', 'LIMIT', 'OFFSET'].map(keyword)]);
     case 'LIMIT':
       return result([keyword('OFFSET')]);
     default:

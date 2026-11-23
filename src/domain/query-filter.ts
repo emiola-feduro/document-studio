@@ -313,7 +313,7 @@ const matches = (path: string, partial: string) => {
 export type SampleIdOf = (path: string, field: Field) => string | undefined;
 
 export const filterCompletions = (engine: EngineId, paths: QueryPath[], before: string, after: string, sample: string, idOf?: SampleIdOf): FilterCompletion[] => {
-  const byPath = new Map(paths.map((p) => [p.path, p]));
+  let byPath = new Map(paths.map((p) => [p.path, p]));
   const operandsOf = (path: string) => {
     const entry = byPath.get(path);
     return entry ? operandsFor(engine, entry.field, sample, entry.field.name, idOf?.(path, entry.field)) : [];
@@ -346,6 +346,19 @@ export const filterCompletions = (engine: EngineId, paths: QueryPath[], before: 
   }
 
   const s = scan(before);
+  // Inside "items": { "$elemMatch": { ... } } the paths are the ones of an element of items.
+  let elem = -1;
+  s.stack.forEach((f, i) => {
+    if (f.owner === '$elemMatch') elem = i;
+  });
+  const arrayPath = elem > 0 ? s.stack[elem - 1].owner : null;
+  if (arrayPath && !arrayPath.startsWith('$')) {
+    const prefix = `${arrayPath}.`;
+    paths = paths.filter((p) => p.path.startsWith(prefix)).map((p) => ({ ...p, path: p.path.slice(prefix.length) }));
+    byPath = new Map(paths.map((p) => [p.path, p]));
+    const outer = idOf;
+    idOf = outer && ((path, field) => outer(prefix + path, field));
+  }
   const top = s.stack.at(-1);
   const owner = top?.owner ?? null;
   // Inside "$not": { ... } the operators belong to the field that owns the $not.

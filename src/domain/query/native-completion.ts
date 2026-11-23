@@ -157,6 +157,28 @@ const filterItems = (project: Project, paths: QueryPath[], before: string, after
   });
 };
 
+const refTarget = (field: Field) => (field.type === 'array' ? field.items : field)?.reference?.collectionId;
+
+/**
+ * Paths for localField (the base collection) and foreignField (the collection in from), with the
+ * model's reference first: clienteId and _id when the base holds it, _id and the holder's path when
+ * the other collection holds it.
+ */
+const lookupFields = (project: Project, root: Collection, paths: QueryPath[], lookup: string, key: 'localField' | 'foreignField'): NativeItem[] => {
+  const fromName = /\bfrom\s*:\s*["']([^"']+)["']/.exec(lookup)?.[1];
+  const target = project.collections.find((c) => c.name === fromName);
+  const own = key === 'localField' ? paths : target ? queryPaths(target) : paths;
+  const first: string[] = [];
+  if (target) {
+    const holds = queryPaths(root).filter((p) => refTarget(p.field) === target.id).map((p) => p.path);
+    const held = queryPaths(target).filter((p) => refTarget(p.field) === root.id).map((p) => p.path);
+    if (key === 'localField') first.push(...holds, ...(held.length ? ['_id'] : []));
+    else first.push(...(holds.length ? ['_id'] : []), ...held);
+  }
+  const ordered = [...first.filter((p) => own.some((o) => o.path === p)), ...own.map((p) => p.path).filter((p) => !first.includes(p))];
+  return ordered.map((p) => ({ label: p, insert: p, ...(first.includes(p) ? { meaning: 'reference' } : {}) }));
+};
+
 const rankByPartial = (items: NativeItem[], partial: string) => {
   if (!partial) return items.slice(0, 40);
   const p = partial.toLowerCase();
@@ -173,7 +195,8 @@ const mongoCompletions = (project: Project, text: string, caret: number, sample:
   if (s.comment) return none;
   const word = /[\w$]*$/.exec(before)![0];
   const wordFrom = caret - word.length;
-  const to = caret + (/^[\w$]*/.exec(after)?.[0].length ?? 0);
+  // Accepting in the middle of a word replaces it whole; at its start, the word stays.
+  const to = /[\w$.]$/.test(before) ? caret + (/^[\w$]*/.exec(after)?.[0].length ?? 0) : caret;
   const rootName = /\bdb\s*\.\s*(?:getCollection\(\s*["']([^"']+)["']\s*\)|([A-Za-z_$][\w$]*))\s*\./.exec(text);
   const root = project.collections.find((c) => c.name === (rootName?.[1] ?? rootName?.[2]));
 
@@ -206,6 +229,11 @@ const mongoCompletions = (project: Project, text: string, caret: number, sample:
     }
     return none;
   }
+  // db.getCollection("|"): the collections.
+  const call = s.frames.at(-1);
+  if (s.inString && s.frames.length === 1 && call?.ch === '(' && /getCollection$/.test(call.callee ?? '')) {
+    return { from: s.stringStart + 1, to: caret, items: rankByPartial(project.collections.map((c) => ({ label: c.name, insert: c.name })), s.partial) };
+  }
   if (!root) return none;
   const paths = pathsWithJoins(project, root, text);
 
@@ -215,7 +243,10 @@ const mongoCompletions = (project: Project, text: string, caret: number, sample:
     const frame = s.frames.at(-1);
     const quoted = (label: string) => ({ label, insert: label });
     if (s.key === 'from' && frame?.owner === '$lookup') return { from, to: caret, items: rankByPartial(project.collections.map((c) => quoted(c.name)), s.partial) };
-    if ((s.key === 'localField' || s.key === 'foreignField') && frame?.owner === '$lookup') return { from, to: caret, items: rankByPartial(paths.map((p) => quoted(p.path)), s.partial) };
+    if ((s.key === 'localField' || s.key === 'foreignField') && frame?.owner === '$lookup') {
+      const items = lookupFields(project, root, paths, before.slice(frame.index) + after.split('}')[0], s.key);
+      return { from, to: caret, items: rankByPartial(items, s.partial) };
+    }
     if (s.partial.startsWith('$')) return { from, to: caret, items: rankByPartial(paths.map((p) => ({ label: `$${p.path}`, insert: `$${p.path}` })), s.partial) };
     if (!s.stringIsKey) return none;
   }
@@ -285,7 +316,8 @@ const couchCompletions = (project: Project, text: string, caret: number, sample:
       { label: 'limit', insert: '"limit": 25' },
       { label: 'skip', insert: '"skip": 0' },
     ];
-    return { from: keyFrom, to: s.inString ? caret : caret, items: rankByPartial(keys, s.inString ? s.partial : '') };
+    const written = new Set([...text.matchAll(/"(selector|fields|sort|limit|skip)"\s*:/g)].map((m) => m[1]));
+    return { from: keyFrom, to: caret, items: rankByPartial(keys.filter((k) => !written.has(k.label)), s.inString ? s.partial : '') };
   }
   const selector = s.frames.find((f) => f.ch === '{' && f.owner === 'selector');
   if (selector) {

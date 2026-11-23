@@ -113,7 +113,8 @@ const ExpressionInput = ({ id, value, onChange, suggestions, columns, placeholde
                 e.preventDefault();
                 apply(option);
               }}
-              onMouseEnter={() => setActive(i)}
+              // Only a real move picks: a list that opens under a still pointer keeps its first option.
+              onMouseMove={(e) => (e.movementX || e.movementY) && i !== active && setActive(i)}
               className={`flex cursor-pointer items-baseline justify-between gap-3 px-2.5 py-1.5 ${i === active ? 'bg-accent-soft' : ''}`}
             >
               <span className="min-w-0 truncate font-canvas text-[0.92em]">{option.display ?? option.value}</span>

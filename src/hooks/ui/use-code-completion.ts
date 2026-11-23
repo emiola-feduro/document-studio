@@ -108,8 +108,10 @@ const useCodeCompletion = (
   const accept = (index = active) => {
     const item = result?.items[index];
     if (!result || !item) return;
-    const next = value.slice(0, result.from) + item.insert + value.slice(result.to);
-    const caret = result.from + item.insert.length;
+    // Accepted right before a word (", |FROM"), a space keeps the two apart.
+    const insert = /^[\w$]/.test(value.slice(result.to)) && /[\w$)]$/.test(item.insert) ? `${item.insert} ` : item.insert;
+    const next = value.slice(0, result.from) + insert + value.slice(result.to);
+    const caret = result.from + insert.length;
     onChange(next);
     setPendingCaret(caret);
     // What was accepted may lead to the next step (a table, then JOIN or WHERE...).
