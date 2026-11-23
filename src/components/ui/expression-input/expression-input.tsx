@@ -43,7 +43,8 @@ const ExpressionInput = ({ id, value, onChange, suggestions, columns, placeholde
   const fieldRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   // Same floating placement as menus: below the field, or above it when there is no room.
-  const position = useMenuPosition(open, fieldRef, listRef, 'start', close);
+  // Measured again when the options change: a list that shrinks while open above the field stays next to it.
+  const position = useMenuPosition(open, fieldRef, listRef, 'start', close, options.length);
 
   return (
     <div ref={fieldRef} className="relative">

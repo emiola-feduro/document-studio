@@ -49,6 +49,22 @@ export const fillWidths = (natural: number[], available: number) => {
 };
 
 /**
+ * Whole pixels that add up to the same total: each width is rounded down and the pixels lost go to
+ * the columns that lost the most, so a filled table does not end a few pixels short.
+ */
+export const wholePixels = (widths: number[]) => {
+  const floors = widths.map(Math.floor);
+  let left = Math.floor(widths.reduce((sum, w) => sum + w, 0) + 1e-6) - floors.reduce((sum, w) => sum + w, 0);
+  const order = widths.map((w, i) => [w - floors[i], i] as const).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of order) {
+    if (left <= 0) break;
+    floors[i] += 1;
+    left -= 1;
+  }
+  return floors;
+};
+
+/**
  * The width to keep for a column so that, after filling the space, it shows exactly `shown` pixels
  * (where the pointer is while dragging). `others` is the kept width of the other columns.
  */

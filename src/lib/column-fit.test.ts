@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fillWidths, fitWidth, naturalForShown } from './column-fit';
+import { fillWidths, fitWidth, naturalForShown, wholePixels } from './column-fit';
 
 const measure = (text: string, bold = false) => text.length * (bold ? 8 : 7);
 
@@ -27,5 +27,15 @@ describe('filling the space', () => {
     const kept = naturalForShown(250, others, available);
     expect(fillWidths([kept, others], available)[0]).toBeCloseTo(250);
     expect(naturalForShown(600, others, available)).toBe(600);
+  });
+});
+
+describe('whole pixels', () => {
+  it('rounds each width without losing the total', () => {
+    const widths = [100.6, 200.6, 300.6, 400.6, 215.6];
+    const whole = wholePixels(widths);
+    expect(whole.reduce((a, b) => a + b, 0)).toBe(Math.floor(widths.reduce((a, b) => a + b, 0)));
+    expect(whole.every((w, i) => w === Math.floor(widths[i]) || w === Math.floor(widths[i]) + 1)).toBe(true);
+    expect(wholePixels([10, 20])).toEqual([10, 20]);
   });
 });

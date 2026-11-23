@@ -15,6 +15,8 @@ const useMenuPosition = (
   menuRef: RefObject<HTMLElement | null>,
   align: 'start' | 'end',
   onDismiss: () => void,
+  /** Changes when the menu's content changes (a list of suggestions), so its size is measured again. */
+  contentKey?: unknown,
 ): MenuPosition => {
   const [position, setPosition] = useState<MenuPosition>(null);
 
@@ -51,7 +53,7 @@ const useMenuPosition = (
       window.removeEventListener('resize', onDismiss);
       window.removeEventListener('scroll', onScroll, true);
     };
-  }, [open, triggerRef, menuRef, align, onDismiss]);
+  }, [open, triggerRef, menuRef, align, onDismiss, contentKey]);
 
   return position;
 };

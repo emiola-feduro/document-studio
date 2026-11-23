@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type RefObject } from 'react';
-import { fillWidths, fitWidth, naturalForShown, SAMPLE_ROWS, textMeasurer, type FitOptions } from '../../lib/column-fit';
+import { fillWidths, fitWidth, wholePixels, naturalForShown, SAMPLE_ROWS, textMeasurer, type FitOptions } from '../../lib/column-fit';
 import useColumnWidthStore from '../../stores/use-column-width-store';
 
 export type FitColumn = { key: string; header: string[]; values: string[] };
@@ -71,8 +71,8 @@ const useColumnWidths = (
   const naturalOf = (key: string) => saved[`${scope}:${key}`] ?? fitted[key] ?? min;
   const keys = columns.map((c) => c.key);
   const available = Math.max(0, containerWidth - fixedWidth);
-  const shown = fillWidths(keys.map(naturalOf), available);
-  const shownByKey = new Map(keys.map((key, i) => [key, Math.floor(shown[i])]));
+  const shown = wholePixels(fillWidths(keys.map(naturalOf), available));
+  const shownByKey = new Map(keys.map((key, i) => [key, shown[i]]));
   const { setWidth, clearWidth } = useColumnWidthStore.getState();
 
   return {
