@@ -291,11 +291,32 @@ const firestoreConditions = (value: Record<string, unknown>, paths: QueryPath[],
       if (op === '$in' && isArray) items.push({ path: key, op: 'array-contains-any', value: operand });
       else if (op === '$all' && Array.isArray(operand) && operand.length === 1) items.push({ path: key, op: 'array-contains', value: operand[0] });
       else if (op === '$exists' && operand === true) items.push({ path: key, op: '!=', value: null });
+      // Firestore cannot find what is missing or what does not contain something, so it explains instead.
+      else if (op === '$exists') warnings.push(t('query.firestoreNoMissing', { field: key }));
+      else if (op === '$not') warnings.push(t('query.firestoreNoNot', { field: key }));
+      else if ((op === '$ne' || op === '$nin') && isArray) warnings.push(t('query.firestoreNoNotContains', { field: key }));
       else if (FIRESTORE_OPS[op]) items.push({ path: key, op: FIRESTORE_OPS[op], value: operand });
       else warnings.push(t('query.firestoreUnsupported', { operator: op }));
     }
   }
   return { kind: 'and', items };
+};
+
+/** != and not-in have limits in Firestore that the query cannot fix on its own, so they are explained. */
+const firestoreNegativeLimits = (conditions: Condition[], sortPath: string | undefined): string[] => {
+  const negatives = conditions.filter((c) => c.op === '!=' || c.op === 'not-in');
+  if (!negatives.length) return [];
+  const warnings: string[] = [];
+  const fields = [...new Set(negatives.map((c) => c.path))];
+  if (negatives.length > 1) warnings.push(t('query.firestoreOneNegative', { fields: fields.join(', ') }));
+  const notIn = negatives.filter((c) => c.op === 'not-in');
+  const any = conditions.filter((c) => (c.op === 'in' || c.op === 'array-contains-any') && !notIn.some((n) => n.path === c.path));
+  if (notIn.length && any.length) warnings.push(t('query.firestoreNotInWithIn', { field: notIn[0].path, other: any[0].path }));
+  // != null is how "the field exists" is written, so only the others leave out documents by surprise.
+  const excluding = negatives.filter((c) => c.value !== null).map((c) => c.path);
+  if (excluding.length) warnings.push(t('query.firestoreNegativeMissing', { fields: [...new Set(excluding)].join(', ') }));
+  if (sortPath && !fields.includes(sortPath)) warnings.push(t('query.firestoreNegativeOrder', { field: fields[0], sort: sortPath }));
+  return warnings;
 };
 
 const flatConditions = (tree: Tree): Condition[] => tree.items.flatMap((i) => ('items' in i ? flatConditions(i) : [i]));
@@ -406,6 +427,7 @@ export const firestoreQuery = (project: Project, spec: QuerySpec): QueryResult |
     if (existing) existing.order = spec.sortOrder ?? 1;
     else keys.push({ path: spec.sortPath, order: spec.sortOrder ?? 1 });
   }
+  warnings.push(...firestoreNegativeLimits(conditions, spec.sortPath));
   const needsIndex = keys.length > 1 && (ranges.length > 0 || Boolean(spec.sortPath) || composite);
   const hasIndex = root.indexes.some((i) => i.keys.length === keys.length && i.keys.every((k, n) => toMongoPath(k.path) === keys[n].path && (k.order === keys[n].order || fieldOf(paths, keys[n].path)?.field.type === 'array')));
   const missingIndex = needsIndex && !hasIndex ? { collectionId: root.id, keys } : undefined;

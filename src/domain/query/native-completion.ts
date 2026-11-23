@@ -1,6 +1,6 @@
 import { discriminator } from '../outputs/couchdb';
 import { queryPaths, type QueryPath } from '../query-builder';
-import { filterCompletions } from '../query-filter';
+import { filterCompletions, firstDocumentId } from '../query-filter';
 import type { Collection, Field, Project } from '../types';
 import { columnsOf } from './sql-completion';
 
@@ -145,16 +145,7 @@ const lookups = (project: Project, root: Collection) =>
     return [{ label: `$lookup ${coll.name}`, insert: `{ $lookup: { from: "${coll.name}", localField: "${path}", foreignField: "_id", as: "${as}" } },\n  { $unwind: "$${as}" }`, detail: path }];
   });
 
-const sampleIdFor = (project: Project, field: Field | undefined) => {
-  const target = (field?.type === 'array' ? field.items : field)?.reference?.collectionId;
-  const doc = target ? project.documents?.[target]?.[0] : undefined;
-  try {
-    const id = doc ? (JSON.parse(doc.json) as { _id?: unknown })._id : undefined;
-    return typeof id === 'string' ? id : id && typeof id === 'object' && '$oid' in id ? String((id as { $oid: unknown }).$oid) : undefined;
-  } catch {
-    return undefined;
-  }
-};
+const sampleIdFor = (project: Project, field: Field | undefined) => firstDocumentId(project, (field?.type === 'array' ? field.items : field)?.reference?.collectionId);
 
 const filterItems = (project: Project, paths: QueryPath[], before: string, after: string, rootIndex: number, sample: string, engine: Project['engine'], from: number) => {
   const head = before.slice(0, rootIndex);

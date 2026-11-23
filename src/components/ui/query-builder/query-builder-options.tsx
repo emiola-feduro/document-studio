@@ -7,11 +7,11 @@ import SegmentedControl from '../segmented-control/segmented-control';
 const toCount = (value: string) => Math.max(0, Math.floor(Number(value) || 0));
 
 /** Filter with suggestions, sort, skip and limit. */
-const QueryBuilderOptions = ({ builder }: { builder: QueryBuilderState }) => {
+const QueryBuilderOptions = ({ builder, onRun }: { builder: QueryBuilderState; onRun?: () => void }) => {
   const t = useT();
   const { project, spec, update, filterPaths } = builder;
   const filter = spec.filter ?? '';
-  const { suggestions, placeholder, error, invalid } = useQueryFilter(project?.engine, filterPaths, filter);
+  const { suggestions, placeholder, error, invalid } = useQueryFilter(project?.engine, filterPaths, filter, { project, rootId: spec.rootId });
 
   return (
     <div className="space-y-4">
@@ -27,6 +27,8 @@ const QueryBuilderOptions = ({ builder }: { builder: QueryBuilderState }) => {
           columns={[]}
           placeholder={placeholder}
           multiline
+          maxOptions={12}
+          onRun={onRun}
           invalid={Boolean(error)}
           describedBy={error ? 'query-filter-error' : undefined}
         />

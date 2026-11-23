@@ -149,7 +149,9 @@ describe('filter completions', () => {
     const { project, pedidos } = setup();
     const items = filterCompletions('mongodb', paths(project, pedidos), '', '', 'texto');
     expect(items.map((i) => i.value)).toContain('{ "estado": "pendiente" }');
-    expect(items.some((i) => i.meaning === 'or' && i.value.startsWith('{ "$or": ['))).toBe(true);
+    const or = items.find((i) => i.meaning === 'or');
+    expect(or?.value.startsWith('{\n  "$or": [\n    {')).toBe(true);
+    expect(JSON.parse(or!.value)).toHaveProperty('$or');
   });
 
   it('completes a path from its last part and then offers values that fit the type', () => {

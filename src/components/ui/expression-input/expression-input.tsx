@@ -17,10 +17,13 @@ type ExpressionInputProps = {
   invalid?: boolean;
   /** A textarea for long expressions (several conditions joined with AND and OR). */
   multiline?: boolean;
+  /** Ctrl+Enter (Cmd+Enter on a Mac) runs; Enter alone makes a new line or accepts an option. */
+  onRun?: () => void;
+  maxOptions?: number;
 };
 
 /** SQL expression field (CHECK, WHERE) with suggestions and column name completion. */
-const ExpressionInput = ({ id, value, onChange, suggestions, columns, placeholder, describedBy, invalid, multiline = false }: ExpressionInputProps) => {
+const ExpressionInput = ({ id, value, onChange, suggestions, columns, placeholder, describedBy, invalid, multiline = false, onRun, maxOptions }: ExpressionInputProps) => {
   const t = useT();
   const { options, open, active, apply, setActive, onKeyDown, onCaret, nextCaret, onFocus, onBlur, onInput, close } = useExpressionCompletion(
     value,
@@ -28,6 +31,7 @@ const ExpressionInput = ({ id, value, onChange, suggestions, columns, placeholde
     suggestions,
     columns,
     multiline,
+    maxOptions,
   );
   const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   // After accepting an option the cursor goes right after the inserted text.
@@ -64,7 +68,15 @@ const ExpressionInput = ({ id, value, onChange, suggestions, columns, placeholde
           onInput(e.target.selectionStart ?? e.target.value.length);
         }}
         onSelect={(e) => onCaret(e.currentTarget.selectionStart ?? 0, e.currentTarget.selectionEnd ?? 0)}
-        onKeyDown={onKeyDown}
+        onKeyDown={(e) => {
+          if (onRun && e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            close();
+            onRun();
+            return;
+          }
+          onKeyDown(e);
+        }}
         onFocus={onFocus}
         onBlur={onBlur}
       />

@@ -84,4 +84,18 @@ describe('running queries on the sample documents', () => {
     expect(run(p, prepareSql(p, 'SELECT * FROM productos')).emptyCollections).toEqual(['productos']);
     expect(readMongoCall('db.getCollection("pedidos").find({}).skip(1)')).toMatchObject({ collection: 'pedidos', method: 'find', skip: 1 });
   });
+
+  it('runs the negative conditions of the builder, in MongoDB and with the regex Mango writes', () => {
+    const rootOf = (p: Project) => p.collections.find((c) => c.name === 'pedidos')!.id;
+    const ids = (p: Project, filter: string) => run(p, prepareGenerated(p, { rootId: rootOf(p), joins: [], limit: 0, filter })).rows.map((r) => r.total);
+    const mongo = project();
+    expect(ids(mongo, '{ "estado": { "$ne": "pagado" } }')).toEqual([5]);
+    expect(ids(mongo, '{ "estado": { "$nin": ["pagado", "pendiente"] } }')).toEqual([5]);
+    expect(ids(mongo, '{ "estado": { "$not": { "$regex": "PAG", "$options": "i" } } }')).toEqual([5]);
+    expect(ids(mongo, '{ "$or": [{ "total": { "$lt": 10 } }, { "total": { "$gt": 25 } }] }')).toEqual([30, 5]);
+    expect(ids(mongo, '{ "notas": { "$exists": false } }')).toEqual([30, 20, 5]);
+    const couch = project('couchdb');
+    expect(ids(couch, '{ "estado": { "$not": { "$regex": "(?i)PAG" } } }')).toEqual([5]);
+    expect(ids(couch, '{ "estado": { "$regex": "(?i)ENV" } }')).toEqual([5]);
+  });
 });

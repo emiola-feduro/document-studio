@@ -56,7 +56,7 @@ const QueryBuilder = () => {
           <>
             <QueryBuilderJoins builder={builder} />
             <QueryBuilderFields builder={builder} />
-            <QueryBuilderOptions builder={builder} />
+            <QueryBuilderOptions builder={builder} onRun={run} />
           </>
         )}
       </div>

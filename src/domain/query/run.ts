@@ -1,7 +1,7 @@
 import { t } from '../../i18n';
 import { balancedArgs, JsParser, parseArgs, type JsValue } from '../import/js-literal';
 import { discriminator } from '../outputs/couchdb';
-import { mongoQuery, type QuerySpec, buildQuery } from '../query-builder';
+import { buildQuery, mongoQuery, parseFilter, type QuerySpec } from '../query-builder';
 import type { Project } from '../types';
 import { parseNative } from './native-parse';
 import { parseSql } from './sql-parse';
@@ -193,8 +193,21 @@ export const prepareNative = (project: Project, text: string): Prepared => {
   return prepared(() => readMongoCall(mongo.text), [t('run.firestoreApprox')]);
 };
 
+/** Mango writes "case insensitive" as a (?i) prefix, which JavaScript regexes do not read: it becomes $options. */
+const mangoRegexes = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(mangoRegexes);
+  if (!value || typeof value !== 'object') return value;
+  const o = Object.fromEntries(Object.entries(value as Row).map(([k, v]) => [k, mangoRegexes(v)]));
+  if (typeof o.$regex === 'string' && o.$regex.startsWith('(?i)')) return { ...o, $regex: o.$regex.slice(4), $options: 'i' };
+  return o;
+};
+
 /** The builder's query, built for MongoDB to run, with the project engine's warnings. */
 export const prepareGenerated = (project: Project, spec: QuerySpec): Prepared => {
+  if (project.engine === 'couchdb' && spec.filter) {
+    const parsed = parseFilter(spec.filter);
+    if (parsed.value) spec = { ...spec, filter: JSON.stringify(mangoRegexes(parsed.value)) };
+  }
   const code = mongoQuery(asMongo(project), spec)?.code;
   if (!code) return { error: t('query.empty'), warnings: [] };
   const warnings = project.engine === 'mongodb' ? [] : (buildQuery(project, spec)?.warnings ?? []);

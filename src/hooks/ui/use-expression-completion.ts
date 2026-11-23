@@ -10,16 +10,24 @@ export type SuggestionSource = ExpressionSuggestionItem[] | ((before: string, af
 
 export type CompletionOption = ExpressionSuggestionItem & { kind: 'suggestion' | 'column' };
 
-const MAX_OPTIONS = 8;
+const DEFAULT_MAX_OPTIONS = 8;
 // Includes dots so qualified names (pr.precio) complete too.
 const PARTIAL_WORD = /([A-Za-z_][A-Za-z0-9_.]*)$/;
 
 /**
  * Autocomplete for a SQL expression field, worked out from the text before the cursor: suggestions
  * and column names that complete the word being typed. Arrows choose, Enter or Tab accept, Escape
- * closes. In a multi-line field, arrows and Enter keep their usual meaning while the list is closed.
+ * closes, Ctrl+Space opens it again. In a multi-line field, arrows and Enter keep their usual meaning
+ * while the list is closed. Ctrl+Enter never accepts an option: it is left for running.
  */
-const useExpressionCompletion = (value: string, onChange: (value: string) => void, source: SuggestionSource, columns: string[], multiline = false) => {
+const useExpressionCompletion = (
+  value: string,
+  onChange: (value: string) => void,
+  source: SuggestionSource,
+  columns: string[],
+  multiline = false,
+  maxOptions = DEFAULT_MAX_OPTIONS,
+) => {
   const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [active, setActive] = useState(0);
@@ -58,8 +66,8 @@ const useExpressionCompletion = (value: string, onChange: (value: string) => voi
         .filter((s) => s.value !== value.trim() && (!text || s.value.toLowerCase().includes(text) || s.label?.toLowerCase().includes(text)))
         .map((s) => ({ ...s, kind: 'suggestion' as const }));
     }
-    return [...columnOptions, ...suggestionOptions].slice(0, MAX_OPTIONS);
-  }, [value, before, after, source, columns]);
+    return [...columnOptions, ...suggestionOptions].slice(0, maxOptions);
+  }, [value, before, after, source, columns, maxOptions]);
 
   const open = focused && !dismissed && options.length > 0;
   // Stable, because the floating list re-measures whenever its dismiss callback changes.
@@ -84,6 +92,12 @@ const useExpressionCompletion = (value: string, onChange: (value: string) => voi
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === ' ' && event.ctrlKey) {
+      event.preventDefault();
+      setDismissed(false);
+      setActive(0);
+      return;
+    }
     if (event.key === 'Escape' && open) {
       event.preventDefault();
       event.stopPropagation();
@@ -98,7 +112,7 @@ const useExpressionCompletion = (value: string, onChange: (value: string) => voi
       setActive((i) => (Math.min(i, options.length - 1) + step + options.length) % options.length);
       return;
     }
-    if ((event.key === 'Enter' || (event.key === 'Tab' && !event.shiftKey)) && open) {
+    if (((event.key === 'Enter' && !event.ctrlKey && !event.metaKey) || (event.key === 'Tab' && !event.shiftKey)) && open) {
       event.preventDefault();
       apply(options[current]);
     }

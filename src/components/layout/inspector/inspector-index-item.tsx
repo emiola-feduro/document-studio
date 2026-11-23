@@ -32,7 +32,7 @@ const InspectorIndexItem = ({ collection, index, engine, position }: InspectorIn
   const paths = allPaths(collection);
   // partialFilterExpression takes the same JSON as a query filter, on paths outside arrays.
   const filterPaths = useMemo(() => queryPaths(collection).filter((p) => !p.inArray), [collection]);
-  const partial = useQueryFilter(engine, filterPaths, index.partialFilter ?? '');
+  const partial = useQueryFilter(engine, filterPaths, index.partialFilter ?? '', { positiveOnly: true });
   const listId = `paths-${collection.id}`;
   const suggestion = suggestIndexName(index.keys, index.wildcard);
 
